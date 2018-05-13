@@ -60,7 +60,7 @@ void pipeline::process()
 
 void pipeline::preprocess()
 {
-    vm[0].resize(dm[0].width, dm[0].height);
+    vm[0].resize(dm[0].width, dm[0].height, ALLOCATOR_DEVICE);
     compute_vertex_map(&dm[0], &vm[0], cam->K, cutoff);
 }
 

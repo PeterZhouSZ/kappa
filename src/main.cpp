@@ -46,8 +46,8 @@ int main(int argc, char** argv)
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
-        glDrawPixels(pipe.vm[0].width, pipe.vm[0].height,
-                     GL_RGB, GL_FLOAT, pipe.vm[0].data);
+        glDrawPixels(pipe.cm[0].width, pipe.cm[0].height,
+                     GL_RGB, GL_UNSIGNED_BYTE, pipe.cm[0].data);
         glfwSwapBuffers(win);
     }
 
