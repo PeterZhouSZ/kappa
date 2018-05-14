@@ -2,31 +2,38 @@
 #include <vector>
 #include "camera.hpp"
 #include "common.hpp"
+#include "point_cloud.hpp"
+#include "volume.hpp"
 
 
 namespace kinfu {
 
 struct pipeline {
-    static constexpr int MAX_PYRAMID_LEVEL = 3;
-
     pipeline();
     ~pipeline();
 
-    void register_camera(camera* cam);
     void process();
 
     void preprocess();
     void integrate();
     void raycast();
     void track();
+    void extract_point_cloud(point_cloud* pc);
 
-    camera* cam = nullptr;
-    int num_levels = 1;
+    volume<sdf32f_t>* vol = NULL;
+
+    camera* cam = NULL;
     float cutoff = 4.0f;
-    image<uint16_t> dm[MAX_PYRAMID_LEVEL];
-    image<rgb8_t>   cm[MAX_PYRAMID_LEVEL];
-    image<float3>   vm[MAX_PYRAMID_LEVEL];
-    image<float3>   nm[MAX_PYRAMID_LEVEL];
+    float mu = 0.1;
+    mat4x4 P;
+    std::vector<mat4x4> poses;
+
+    image<uint16_t> dmap;
+    image<rgb8_t>   cmap;
+    image<float3>   vmap;
+    image<float3>   nmap;
+    image<float3>   rvmap;
+    image<float3>   rnmap;
 };
 
 }

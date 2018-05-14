@@ -3,7 +3,7 @@
 #include <time.h>
 #include <GLFW/glfw3.h>
 
-#include <kinfu/kinfu.hpp>
+#include <kinfu/pipeline.hpp>
 
 
 using namespace kinfu;
@@ -19,17 +19,23 @@ int main(int argc, char** argv)
 
     camera cam;
     cam.set_resolution(RESOLUTION_VGA);
-    cam.start();
-
     cam.K.cx = 320.0f;
     cam.K.cy = 240.0f;
     cam.K.fx = 585.0f;
     cam.K.fy = 585.0f;
     cam.K.width = 640;
     cam.K.height = 480;
+    cam.start();
+
+    volume<sdf32f_t> vol;
+    int3 dimension = {256, 256, 256};
+    vol.voxel_size = 0.008f;
+    vol.offset = {-1.0f, -1.0f, 0.0f};
+    vol.allocate(dimension, ALLOCATOR_DEVICE);
 
     pipeline pipe;
-    pipe.register_camera(&cam);
+    pipe.cam = &cam;
+    pipe.vol = &vol;
 
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
@@ -46,8 +52,8 @@ int main(int argc, char** argv)
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
-        glDrawPixels(pipe.cm[0].width, pipe.cm[0].height,
-                     GL_RGB, GL_UNSIGNED_BYTE, pipe.cm[0].data);
+        glDrawPixels(pipe.rvmap.width, pipe.rvmap.height,
+                     GL_RGB, GL_FLOAT, pipe.rvmap.data);
         glfwSwapBuffers(win);
     }
 

@@ -3,6 +3,13 @@
 
 namespace kinfu {
 
+enum allocator {
+    ALLOCATOR_HOST,
+    ALLOCATOR_DEVICE,
+    ALLOCATOR_MAPPED
+};
+
+
 inline int divup(int a, int b)
 {
     return (a + b - 1) / b;

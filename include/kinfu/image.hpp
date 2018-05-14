@@ -1,15 +1,10 @@
 #pragma once
 #include <stdint.h>
 #include <cuda_runtime_api.h>
+#include "common.hpp"
 
 
 namespace kinfu {
-
-enum allocator {
-    ALLOCATOR_HOST,
-    ALLOCATOR_DEVICE,
-    ALLOCATOR_MAPPED
-};
 
 struct rgb8_t { uint8_t r, g, b; };
 
@@ -22,11 +17,12 @@ struct image {
     void allocate(int width, int height, allocator alloc = ALLOCATOR_MAPPED);
     void deallocate();
 
-    T* gpu() const;
+    image<T> gpu() const;
+    image<T> cpu() const;
 
     int width = 0;
     int height = 0;
-    T* data = nullptr;
+    T* data = NULL;
     allocator alloc;
 };
 
@@ -46,14 +42,15 @@ void image<T>::allocate(int width, int height, allocator alloc)
     this->width = width;
     this->height = height;
     this->alloc = alloc;
+    size_t size = width * height * sizeof(T);
     switch (alloc) {
         case ALLOCATOR_HOST:
             break;
         case ALLOCATOR_DEVICE:
-            cudaMalloc((void**)(&data), width * height * sizeof(T));
+            cudaMalloc((void**)(&data), size);
             break;
         case ALLOCATOR_MAPPED:
-            cudaHostAlloc((void**)(&data), width * height * sizeof(T), cudaHostAllocMapped);
+            cudaHostAlloc((void**)(&data), size, cudaHostAllocMapped);
             break;
     }
 }
@@ -74,25 +71,28 @@ void image<T>::deallocate()
     };
     this->width = 0;
     this->height = 0;
-    this->data = nullptr;
+    this->data = NULL;
 }
 
 
 template <typename T>
-T* image<T>::gpu() const
+image<T> image<T>::gpu() const
 {
-    T* ptr = nullptr;
+    image<T> im;
+    im.width = this->width;
+    im.height = this->height;
+    im.alloc = ALLOCATOR_DEVICE;
     switch (this->alloc) {
         case ALLOCATOR_HOST:
             break;
         case ALLOCATOR_DEVICE:
-            ptr = this->data;
+            im.data = this->data;
             break;
         case ALLOCATOR_MAPPED:
-            cudaHostGetDevicePointer(&ptr, this->data, 0);
+            cudaHostGetDevicePointer(&im.data, this->data, 0);
             break;
     }
-    return ptr;
+    return im;
 }
 
 }
