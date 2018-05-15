@@ -3,12 +3,17 @@
 #include "image.hpp"
 
 
-namespace kinfu {
-
 enum distortion {
     DISTORTION_NONE,
     DISTORTION_FTHETA,
 };
+
+
+enum resolution {
+    RESOLUTION_QVGA,
+    RESOLUTION_VGA,
+};
+
 
 struct intrinsics {
     int width;
@@ -19,12 +24,6 @@ struct intrinsics {
     float fy;
     distortion model;
     float coeffs[5];
-};
-
-
-enum resolution {
-    RESOLUTION_QVGA,
-    RESOLUTION_VGA,
 };
 
 
@@ -42,5 +41,3 @@ struct camera {
     openni::VideoStream depth;
     openni::VideoStream color;
 };
-
-}

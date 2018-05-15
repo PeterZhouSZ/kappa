@@ -4,12 +4,11 @@
 #include "common.hpp"
 
 
-namespace kinfu {
-
 struct sdf32f_t {
     float tsdf;
     uint8_t weight;
 };
+
 
 template <typename T>
 struct volume {
@@ -84,6 +83,4 @@ volume<T> volume<T>::gpu() const
             break;
     }
     return vol;
-}
-
 }

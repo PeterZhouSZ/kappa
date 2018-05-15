@@ -2,11 +2,8 @@
 #include <stdio.h>
 #include <time.h>
 #include <GLFW/glfw3.h>
-
 #include <kinfu/pipeline.hpp>
 
-
-using namespace kinfu;
 
 int main(int argc, char** argv)
 {

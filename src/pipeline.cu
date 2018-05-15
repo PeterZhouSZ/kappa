@@ -1,19 +1,30 @@
 #include <kinfu/pipeline.hpp>
+#include <float.h>
 #include <kinfu/math.hpp>
 
 
-namespace kinfu {
-
 __global__
-void compute_vertex_kernel(image<uint16_t> dmap, image<float3> vmap, intrinsics K, float cutoff)
+void compute_depth_kernel(image<uint16_t> rmap, image<float> dmap, intrinsics K, float cutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float d = dmap.data[i] * 0.001f;
+    float d = rmap.data[i] * 0.001f;
     if (d > cutoff) d = 0.0f;
+    dmap.data[i] = d;
+}
+
+__global__
+void compute_vertex_kernel(image<float> dmap, image<float3> vmap, intrinsics K)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
+
+    int i = u + v * K.width;
+    float d = dmap.data[i];
 
     vmap.data[i].x = (u - K.cx) * d / K.fx;
     vmap.data[i].y = (v - K.cy) * d / K.fy;
@@ -44,7 +55,7 @@ void compute_normal_kernel(image<float3> vmap, image<float3> nmap, intrinsics K)
 
 
 __global__
-void integrate_volume_kernel(volume<sdf32f_t> vol, image<uint16_t> dmap, intrinsics K, mat4x4 P, float mu)
+void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics K, mat4x4 P, float mu)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -59,7 +70,7 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<uint16_t> dmap, intrins
     int v = roundf((q.y / q.z) * K.fy + K.cy);
     if (u < 0 || u >= K.width || v < 0 || v >= K.height) return;
 
-    float d = dmap.data[u + v * K.width] * 0.001f;
+    float d = dmap.data[u + v * K.width];
     if (d <= 0.0f) return;
 
     float dist = d - q.z;
@@ -91,14 +102,11 @@ float interp_tsdf(volume<sdf32f_t> vol, float3 p)
 
 
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, intrinsics K, mat4x4 P)
+void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, intrinsics K, mat4x4 P, float near, float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
-
-    const float near = 0.001f;
-    const float far  = 4.0f;
 
     float3 q;
     q.x = (u - K.cx) / K.fx;
@@ -129,13 +137,31 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, intrinsics 
 }
 
 
-static void compute_vertex_map(const image<uint16_t>* dmap, image<float3>* vmap, intrinsics K, float cutoff)
+__global__
+void icp_p2p_se3_kernel(image<float3> vmap0, image<float3> nmap0,
+                        image<float3> vmap1, image<float3> nmap1,
+                        intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+{
+}
+
+
+static void compute_depth_map(const image<uint16_t>* rmap, image<float>* dmap, intrinsics K, float cutoff)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    compute_vertex_kernel<<<grid_size, block_size>>>(dmap->gpu(), vmap->gpu(), K, cutoff);
+    compute_depth_kernel<<<grid_size, block_size>>>(rmap->gpu(), dmap->gpu(), K, cutoff);
+}
+
+
+static void compute_vertex_map(const image<float>* dmap, image<float3>* vmap, intrinsics K)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+    compute_vertex_kernel<<<grid_size, block_size>>>(dmap->gpu(), vmap->gpu(), K);
 }
 
 
@@ -149,7 +175,7 @@ static void compute_normal_map(const image<float3>* vmap, image<float3>* nmap, i
 }
 
 
-static void integrate_volume(const volume<sdf32f_t>* vol, image<uint16_t>* dmap, intrinsics K, mat4x4 P, float mu)
+static void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dmap, intrinsics K, mat4x4 P, float mu)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
@@ -160,13 +186,28 @@ static void integrate_volume(const volume<sdf32f_t>* vol, image<uint16_t>* dmap,
 }
 
 
-static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, intrinsics K, mat4x4 P)
+static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, intrinsics K, mat4x4 P, float near, float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), K, P);
+    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), K, P, near, far);
+}
+
+
+static mat4x4 icp_p2p_se3(const image<float3>* vmap0, const image<float3>* nmap0,
+                          const image<float3>* vmap1, const image<float3>* nmap1,
+                          intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+    icp_p2p_se3_kernel<<<grid_size, block_size>>>(
+        vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(),
+        K, T, dist_threshold, angle_threshold);
+    return T;
 }
 
 
@@ -192,7 +233,7 @@ pipeline::~pipeline()
 
 void pipeline::process()
 {
-    cam->read(&dmap, &cmap);
+    cam->read(&rmap, &cmap);
     preprocess();
     integrate();
     raycast();
@@ -201,9 +242,12 @@ void pipeline::process()
 
 void pipeline::preprocess()
 {
-    vmap.resize(dmap.width, dmap.height, ALLOCATOR_DEVICE);
-    nmap.resize(dmap.width, dmap.height, ALLOCATOR_DEVICE);
-    compute_vertex_map(&dmap, &vmap, cam->K, cutoff);
+    dmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
+    vmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
+    nmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
+
+    compute_depth_map(&rmap, &dmap, cam->K, cutoff);
+    compute_vertex_map(&dmap, &vmap, cam->K);
     compute_normal_map(&vmap, &nmap, cam->K);
 }
 
@@ -218,13 +262,23 @@ void pipeline::raycast()
 {
     rvmap.resize(vmap.width, vmap.height, ALLOCATOR_MAPPED);
     rnmap.resize(nmap.width, nmap.height, ALLOCATOR_MAPPED);
-    raycast_volume(vol, &rvmap, cam->K, P);
+    raycast_volume(vol, &rvmap, cam->K, P, near, far);
+}
+
+
+void pipeline::track()
+{
+    mat4x4 T = P;
+    float error = FLT_MAX;
+    for (int i = 0; i < icp_num_iterations; ++i) {
+        mat4x4 delta = icp_p2p_se3(&vmap, &nmap, &rvmap, &rnmap, cam->K, T, dist_threshold, angle_threshold);
+        T = delta * T;
+    }
+    P = T;
 }
 
 
 void pipeline::extract_point_cloud(point_cloud* pc)
 {
     extract_isosurface_cloud(vol, pc);
-}
-
 }

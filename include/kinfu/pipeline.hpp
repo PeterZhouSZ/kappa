@@ -6,8 +6,6 @@
 #include "volume.hpp"
 
 
-namespace kinfu {
-
 struct pipeline {
     pipeline();
     ~pipeline();
@@ -23,17 +21,21 @@ struct pipeline {
     volume<sdf32f_t>* vol = NULL;
 
     camera* cam = NULL;
-    float cutoff = 4.0f;
-    float mu = 0.1;
+    int icp_num_iterations = 10;
+    float dist_threshold = 0.05f;
+    float angle_threshold = 0.8f;
+    float cutoff = 3.0f;
+    float near = 0.001f;
+    float far = 4.0f;
+    float mu = 0.1f;
     mat4x4 P;
     std::vector<mat4x4> poses;
 
-    image<uint16_t> dmap;
+    image<uint16_t> rmap;
+    image<float>    dmap;
     image<rgb8_t>   cmap;
     image<float3>   vmap;
     image<float3>   nmap;
     image<float3>   rvmap;
     image<float3>   rnmap;
 };
-
-}

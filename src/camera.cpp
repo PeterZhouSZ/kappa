@@ -3,8 +3,6 @@
 
 using namespace openni;
 
-namespace kinfu {
-
 camera::camera(const char* uri)
 {
     status = OpenNI::initialize();
@@ -82,6 +80,4 @@ void camera::set_resolution(resolution res)
     mode.setResolution(width, height);
     mode.setFps(fps);
     color.setVideoMode(mode);
-}
-
 }

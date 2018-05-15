@@ -4,8 +4,6 @@
 #include "common.hpp"
 
 
-namespace kinfu {
-
 struct rgb8_t { uint8_t r, g, b; };
 
 template <typename T>
@@ -93,6 +91,4 @@ image<T> image<T>::gpu() const
             break;
     }
     return im;
-}
-
 }
