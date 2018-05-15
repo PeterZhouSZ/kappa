@@ -7,6 +7,8 @@
 
 
 struct pipeline {
+    static constexpr int num_levels = 3;
+
     pipeline();
     ~pipeline();
 
@@ -33,6 +35,7 @@ struct pipeline {
 
     image<uint16_t> rmap;
     image<float>    dmap;
+    image<float>    dmaps[num_levels];
     image<rgb8_t>   cmap;
     image<float3>   vmap;
     image<float3>   nmap;

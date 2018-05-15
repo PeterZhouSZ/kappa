@@ -87,11 +87,8 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics
 
 
 __device__
-float interp_tsdf(volume<sdf32f_t> vol, float3 p)
+float get_tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
 {
-    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
-    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
-    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
     if (x < 0 || x >= vol.dimension.x ||
         y < 0 || y >= vol.dimension.y ||
         z < 0 || z >= vol.dimension.z)
@@ -101,8 +98,31 @@ float interp_tsdf(volume<sdf32f_t> vol, float3 p)
 }
 
 
+__device__
+float nearest_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
+    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
+    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
+    return get_tsdf_at(vol, x, y, z);
+}
+
+
+__device__
+float interp_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    return 1.0f;
+}
+
+
+__device__
+float3 grad_tsdf(volume<sdf32f_t> vol, float p)
+{
+}
+
+
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, intrinsics K, mat4x4 P, float near, float far)
+void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float3> nmap, intrinsics K, mat4x4 P, float near, float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -123,7 +143,7 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, intrinsics 
     float step = vol.voxel_size;
     for (; z <= far; z += step) {
         p = origin + direction * z;
-        ftt = interp_tsdf(vol, p);
+        ftt = nearest_tsdf(vol, p);
         if (ftt < 0.0f) break;
         ft = ftt;
     }
@@ -186,13 +206,13 @@ static void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dmap, in
 }
 
 
-static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, intrinsics K, mat4x4 P, float near, float far)
+static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, image<float3>* nmap, intrinsics K, mat4x4 P, float near, float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), K, P, near, far);
+    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), nmap->gpu(), K, P, near, far);
 }
 
 
@@ -204,9 +224,7 @@ static mat4x4 icp_p2p_se3(const image<float3>* vmap0, const image<float3>* nmap0
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    icp_p2p_se3_kernel<<<grid_size, block_size>>>(
-        vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(),
-        K, T, dist_threshold, angle_threshold);
+    icp_p2p_se3_kernel<<<grid_size, block_size>>>(vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), K, T, dist_threshold, angle_threshold);
     return T;
 }
 
@@ -262,14 +280,13 @@ void pipeline::raycast()
 {
     rvmap.resize(vmap.width, vmap.height, ALLOCATOR_MAPPED);
     rnmap.resize(nmap.width, nmap.height, ALLOCATOR_MAPPED);
-    raycast_volume(vol, &rvmap, cam->K, P, near, far);
+    raycast_volume(vol, &rvmap, &rnmap, cam->K, P, near, far);
 }
 
 
 void pipeline::track()
 {
     mat4x4 T = P;
-    float error = FLT_MAX;
     for (int i = 0; i < icp_num_iterations; ++i) {
         mat4x4 delta = icp_p2p_se3(&vmap, &nmap, &rvmap, &rnmap, cam->K, T, dist_threshold, angle_threshold);
         T = delta * T;
