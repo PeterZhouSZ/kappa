@@ -25,8 +25,8 @@ int main(int argc, char** argv)
     cam.start();
 
     volume<sdf32f_t> vol;
-    int3 dimension = {256, 256, 256};
-    vol.voxel_size = 0.008f;
+    int3 dimension = {512, 512, 512};
+    vol.voxel_size = 0.004f;
     vol.offset = {-1.0f, -1.0f, 0.0f};
     vol.allocate(dimension, ALLOCATOR_DEVICE);
 
@@ -49,8 +49,8 @@ int main(int argc, char** argv)
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
-        glDrawPixels(pipe.rvmap.width, pipe.rvmap.height,
-                     GL_RGB, GL_FLOAT, pipe.rvmap.data);
+        glDrawPixels(pipe.rnmap.width, pipe.rnmap.height,
+                     GL_RGB, GL_FLOAT, pipe.rnmap.data);
         glfwSwapBuffers(win);
     }
 

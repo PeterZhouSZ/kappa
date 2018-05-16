@@ -3,6 +3,75 @@
 #include <kinfu/math.hpp>
 
 
+__device__
+float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
+{
+    int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
+    if (x < 0 || x >= vol.dimension.x ||
+        y < 0 || y >= vol.dimension.y ||
+        z < 0 || z >= vol.dimension.z)
+        return 1.0f; // cannot interpolate
+    return vol.data[i].tsdf;
+}
+
+
+__device__
+float nearest_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
+    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
+    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
+    return tsdf_at(vol, x, y, z);
+}
+
+
+__device__
+float interp_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    float3 q = (p - vol.offset) / vol.voxel_size;
+    int x = (int)q.x;
+    int y = (int)q.y;
+    int z = (int)q.z;
+    float a = q.x - x;
+    float b = q.y - y;
+    float c = q.z - z;
+
+    float tsdf = 0.0f;
+    tsdf += tsdf_at(vol, x + 0, y + 0, z + 0) * (1 - a) * (1 - b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 0, y + 0, z + 1) * (1 - a) * (1 - b) * (    c);
+    tsdf += tsdf_at(vol, x + 0, y + 1, z + 0) * (1 - a) * (    b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 0, y + 1, z + 1) * (1 - a) * (    b) * (    c);
+    tsdf += tsdf_at(vol, x + 1, y + 0, z + 0) * (    a) * (1 - b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 1, y + 0, z + 1) * (    a) * (1 - b) * (    c);
+    tsdf += tsdf_at(vol, x + 1, y + 1, z + 0) * (    a) * (    b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 1, y + 1, z + 1) * (    a) * (    b) * (    c);
+    return tsdf;
+}
+
+
+__device__
+float3 grad_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
+    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
+    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
+
+    float3 grad;
+    float f0, f1;
+    f0 = tsdf_at(vol, x - 1, y, z);
+    f1 = tsdf_at(vol, x + 1, y, z);
+    grad.x = (f1 - f0) / vol.voxel_size;
+    f0 = tsdf_at(vol, x, y - 1, z);
+    f1 = tsdf_at(vol, x, y + 1, z);
+    grad.y = (f1 - f0) / vol.voxel_size;
+    f0 = tsdf_at(vol, x, y, z - 1);
+    f1 = tsdf_at(vol, x, y, z + 1);
+    grad.z = (f1 - f0) / vol.voxel_size;
+    if (length(grad) == 0.0f) return {0.0f, 0.0f, 0.0f};
+    return normalize(grad);
+}
+
+
 __global__
 void compute_depth_kernel(image<uint16_t> rmap, image<float> dmap, intrinsics K, float cutoff)
 {
@@ -15,6 +84,7 @@ void compute_depth_kernel(image<uint16_t> rmap, image<float> dmap, intrinsics K,
     if (d > cutoff) d = 0.0f;
     dmap.data[i] = d;
 }
+
 
 __global__
 void compute_vertex_kernel(image<float> dmap, image<float3> vmap, intrinsics K)
@@ -86,41 +156,6 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics
 }
 
 
-__device__
-float get_tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
-{
-    if (x < 0 || x >= vol.dimension.x ||
-        y < 0 || y >= vol.dimension.y ||
-        z < 0 || z >= vol.dimension.z)
-        return 1.0f; // cannot interpolate
-    int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
-    return vol.data[i].tsdf;
-}
-
-
-__device__
-float nearest_tsdf(volume<sdf32f_t> vol, float3 p)
-{
-    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
-    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
-    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
-    return get_tsdf_at(vol, x, y, z);
-}
-
-
-__device__
-float interp_tsdf(volume<sdf32f_t> vol, float3 p)
-{
-    return 1.0f;
-}
-
-
-__device__
-float3 grad_tsdf(volume<sdf32f_t> vol, float p)
-{
-}
-
-
 __global__
 void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float3> nmap, intrinsics K, mat4x4 P, float near, float far)
 {
@@ -143,7 +178,7 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
     float step = vol.voxel_size;
     for (; z <= far; z += step) {
         p = origin + direction * z;
-        ftt = nearest_tsdf(vol, p);
+        ftt = interp_tsdf(vol, p);
         if (ftt < 0.0f) break;
         ft = ftt;
     }
@@ -153,13 +188,15 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
 
     p = {0.0f, 0.0f, 0.0f};
     if (z > 0.0f) p = origin + direction * z;
-    vmap.data[u + v * K.width] = p;
+
+    int i = u + v * K.width;
+    vmap.data[i] = p;
+    nmap.data[i] = grad_tsdf(vol, p);
 }
 
 
 __global__
-void icp_p2p_se3_kernel(image<float3> vmap0, image<float3> nmap0,
-                        image<float3> vmap1, image<float3> nmap1,
+void icp_p2p_se3_kernel(image<float3> vmap0, image<float3> nmap0, image<float3> vmap1, image<float3> nmap1,
                         intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
 }
@@ -216,8 +253,7 @@ static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, ima
 }
 
 
-static mat4x4 icp_p2p_se3(const image<float3>* vmap0, const image<float3>* nmap0,
-                          const image<float3>* vmap1, const image<float3>* nmap1,
+static mat4x4 icp_p2p_se3(const image<float3>* vmap0, const image<float3>* nmap0, const image<float3>* vmap1, const image<float3>* nmap1,
                           intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
     dim3 block_size(16, 16);
