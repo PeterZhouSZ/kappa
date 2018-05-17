@@ -196,8 +196,7 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
 
 
 __global__
-void icp_p2p_se3_kernel(image<float3> vmap0, image<float3> nmap0, image<float3> vmap1, image<float3> nmap1,
-                        intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+void icp_p2p_se3_kernel(image<float3> vm0, image<float3> nm0, image<float3> vm1, image<float3> nm1, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
 }
 
@@ -253,14 +252,13 @@ static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, ima
 }
 
 
-static mat4x4 icp_p2p_se3(const image<float3>* vmap0, const image<float3>* nmap0, const image<float3>* vmap1, const image<float3>* nmap1,
-                          intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+static mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    icp_p2p_se3_kernel<<<grid_size, block_size>>>(vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), K, T, dist_threshold, angle_threshold);
+    icp_p2p_se3_kernel<<<grid_size, block_size>>>(vm0->gpu(), nm0->gpu(), vm1->gpu(), nm1->gpu(), K, T, dist_threshold, angle_threshold);
     return T;
 }
 
@@ -314,8 +312,8 @@ void pipeline::integrate()
 
 void pipeline::raycast()
 {
-    rvmap.resize(vmap.width, vmap.height, ALLOCATOR_MAPPED);
-    rnmap.resize(nmap.width, nmap.height, ALLOCATOR_MAPPED);
+    rvmap.resize(vmap.width, vmap.height, ALLOCATOR_DEVICE);
+    rnmap.resize(nmap.width, nmap.height, ALLOCATOR_DEVICE);
     raycast_volume(vol, &rvmap, &rnmap, cam->K, P, near, far);
 }
 

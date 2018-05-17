@@ -3,6 +3,7 @@
 #include <time.h>
 #include <GLFW/glfw3.h>
 #include <kinfu/pipeline.hpp>
+#include <kinfu/renderer.hpp>
 
 
 int main(int argc, char** argv)
@@ -34,6 +35,10 @@ int main(int argc, char** argv)
     pipe.cam = &cam;
     pipe.vol = &vol;
 
+    image<rgb8_t> im;
+    renderer r;
+    r.K = cam.K;
+
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -46,11 +51,11 @@ int main(int argc, char** argv)
         glOrtho(0, 640, 480, 0, -1 , 1);
 
         pipe.process();
+        r.render_phong(&im, &pipe.rvmap, &pipe.rnmap);
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
-        glDrawPixels(pipe.rnmap.width, pipe.rnmap.height,
-                     GL_RGB, GL_FLOAT, pipe.rnmap.data);
+        glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
         glfwSwapBuffers(win);
     }
 
