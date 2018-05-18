@@ -23,6 +23,7 @@ struct pipeline {
     volume<sdf32f_t>* vol = NULL;
 
     camera* cam = NULL;
+    int frame = 0;
     int icp_num_iterations = 10;
     float dist_threshold = 0.05f;
     float angle_threshold = 0.8f;

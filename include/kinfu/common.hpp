@@ -10,6 +10,26 @@ enum allocator {
 };
 
 
+struct JtJse3 {
+    float weight = 0.0f;
+    float error = 0.0f;
+    float Jte[6] = {0.0f};
+    float JtJ[21] = {0.0f};
+
+    __host__ __device__
+    const JtJse3& operator+=(const JtJse3& other)
+    {
+        error += other.error;
+        weight += other.weight;
+        for (int i = 0; i < 6; ++i)
+            Jte[i] += other.Jte[i];
+        for (int i = 0; i < 21; ++i)
+            JtJ[i] += other.JtJ[i];
+        return *this;
+    }
+};
+
+
 struct mat4x4 {
     mat4x4()
     {
@@ -58,10 +78,42 @@ inline mat4x4 operator*(mat4x4 A, mat4x4 B)
 }
 
 
+__host__ __device__
+inline float3 operator*(mat4x4 A, float3 v)
+{
+    float3 u;
+    u.x = A.m00 * v.x + A.m01 * v.y + A.m02 * v.z + A.m03;
+    u.y = A.m10 * v.x + A.m11 * v.y + A.m12 * v.z + A.m13;
+    u.z = A.m20 * v.x + A.m21 * v.y + A.m22 * v.z + A.m23;
+    return u;
+}
+
+
+__host__ __device__
+inline float3 rotate(mat4x4 A, float3 v)
+{
+    float3 u;
+    u.x = A.m00 * v.x + A.m01 * v.y + A.m02 + v.z;
+    u.y = A.m10 * v.x + A.m11 * v.y + A.m12 + v.z;
+    u.z = A.m20 * v.x + A.m21 * v.y + A.m22 + v.z;
+    return u;
+}
+
+
 inline int divup(int a, int b)
 {
     return (a + b - 1) / b;
 }
 
 
-void print_mat4x4(FILE* fp, mat4x4 M);
+inline void print_mat4x4(FILE* fp, mat4x4 M)
+{
+    printf("%.3f %.3f %.3f %.3f\n"
+           "%.3f %.3f %.3f %.3f\n"
+           "%.3f %.3f %.3f %.3f\n"
+           "%.3f %.3f %.3f %.3f\n",
+           M.m00, M.m01, M.m02, M.m03,
+           M.m10, M.m11, M.m12, M.m13,
+           M.m20, M.m21, M.m22, M.m23,
+           M.m30, M.m31, M.m32, M.m33);
+}
