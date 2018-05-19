@@ -24,10 +24,11 @@ struct pipeline {
 
     camera* cam = NULL;
     int frame = 0;
-    int icp_num_iterations = 10;
+    int icp_num_iterations = 1;
+    float ratio_threshold = 0.5f;
     float dist_threshold = 0.05f;
     float angle_threshold = 0.8f;
-    float cutoff = 3.0f;
+    float cutoff = 4.0f;
     float near = 0.001f;
     float far = 4.0f;
     float mu = 0.1f;
@@ -40,6 +41,7 @@ struct pipeline {
     image<rgb8_t>   cmap;
     image<float3>   vmap;
     image<float3>   nmap;
+    image<uint8_t>  tmap;
     image<float3>   rvmap;
     image<float3>   rnmap;
 };

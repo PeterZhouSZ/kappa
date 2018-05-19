@@ -1,5 +1,6 @@
 #include <kinfu/pipeline.hpp>
 #include <float.h>
+#include <Eigen/SVD>
 #include <kinfu/math.hpp>
 
 
@@ -125,15 +126,16 @@ void compute_normal_kernel(image<float3> vmap, image<float3> nmap, intrinsics K)
 
 
 __global__
-void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics K, mat4x4 P, float mu)
+void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics K, mat4x4 T, float mu)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int z = threadIdx.z + blockIdx.z * blockDim.z;
     if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
 
-    float3 p = {(float)x, (float)y, (float)z};
-    float3 q = vol.offset + p * vol.voxel_size;
+    float3 p ={(float)x, (float)y, (float)z};
+    p = vol.offset + p * vol.voxel_size;
+    float3 q = T * p;
     if (q.z <= 0.001f) return;
 
     int u = roundf((q.x / q.z) * K.fx + K.cx);
@@ -157,7 +159,7 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics
 
 
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float3> nmap, intrinsics K, mat4x4 P, float near, float far)
+void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float3> nmap, intrinsics K, mat4x4 T, float near, float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -168,8 +170,8 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
     q.y = (v - K.cy) / K.fy;
     q.z = 1.0f;
 
-    float3 origin = {0.0f, 0.0f, 0.0f};
-    float3 direction = q;
+    float3 origin = {T.m03, T.m13, T.m23};
+    float3 direction = rotate(T, q);
 
     float z = near;
     float3 p = origin + direction * z;
@@ -197,65 +199,73 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
 
 __global__
 void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vmap0, image<float3> nmap0, image<float3> vmap1, image<float3> nmap1,
-                        intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+                        image<uint8_t> tmap, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
-    int u0 = threadIdx.x + blockIdx.x * blockDim.x;
-    int v0 = threadIdx.y + blockIdx.y * blockDim.y;
-    if (u0 >= K.width || v0 >= K.height) return;
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
 
-    int i0 = u0 + v0 * K.width;
-    JTJ.data[i0].error = 0.0f;
-    JTJ.data[i0].weight = 0.0f;
+    int i = u + v * K.width;
+    JTJ.data[i].error = 0.0f;
+    JTJ.data[i].weight = 0.0f;
+    tmap.data[i] = 0xff;
 
-    float3 p0 = T * vmap0.data[i0];
-    float3 n0 = rotate(T, nmap0.data[i0]);
-    if (p0.z == 0.0f) return;
+    float3 p0 = T * vmap0.data[i];
+    float3 n0 = rotate(T, nmap0.data[i]);
+    if (p0.z == 0.0f) {
+        tmap.data[i] = 0x00;
+        return;
+    }
 
-    int u1 = roundf((p0.x / p0.z) * K.fx + K.cx);
-    int v1 = roundf((p0.y / p0.z) * K.fy + K.cy);
-    if (u1 < 0 || u1 >= K.width || v1 < 0 || v1 >= K.height) return;
-
-    int i1 = u1 + v1 * K.width;
-    float3 p1 = vmap1.data[i1];
-    float3 n1 = nmap1.data[i1];
-    if (p1.z == 0.0f) return;
+    float3 p1 = vmap1.data[i];
+    float3 n1 = nmap1.data[i];
+    if (p1.z == 0.0f) {
+        tmap.data[i] = 0x00;
+        return;
+    }
 
     float3 d = p1 - p0;
-    if (length(d) >= dist_threshold) return;
-    if (dot(n0, n1) < angle_threshold) return;
+    if (length(d) >= dist_threshold) {
+        tmap.data[i] = 0x08;
+        return;
+    }
+    if (fabs(dot(n0, n1)) < angle_threshold) {
+        tmap.data[i] = 0x80;
+        return;
+    }
 
     float e = dot(d, n1);
     float3 Jt = n1;
     float3 JR = cross(p0, n1);
-    JTJ.data[i0].weight  = 1.0f;
-    JTJ.data[i0].error   = e * e;
-    JTJ.data[i0].Jte[0]  = e * Jt.x;
-    JTJ.data[i0].Jte[1]  = e * Jt.y;
-    JTJ.data[i0].Jte[2]  = e * Jt.z;
-    JTJ.data[i0].Jte[3]  = e * JR.x;
-    JTJ.data[i0].Jte[4]  = e * JR.y;
-    JTJ.data[i0].Jte[5]  = e * JR.z;
-    JTJ.data[i0].JtJ[0]  = Jt.x * Jt.x;
-    JTJ.data[i0].JtJ[1]  = Jt.x * Jt.y;
-    JTJ.data[i0].JtJ[2]  = Jt.x * Jt.z;
-    JTJ.data[i0].JtJ[3]  = Jt.x * JR.x;
-    JTJ.data[i0].JtJ[4]  = Jt.x * JR.y;
-    JTJ.data[i0].JtJ[5]  = Jt.x * JR.z;
-    JTJ.data[i0].JtJ[6]  = Jt.y * Jt.y;
-    JTJ.data[i0].JtJ[7]  = Jt.y * Jt.z;
-    JTJ.data[i0].JtJ[8]  = Jt.y * JR.x;
-    JTJ.data[i0].JtJ[9]  = Jt.y * JR.y;
-    JTJ.data[i0].JtJ[10] = Jt.y * JR.z;
-    JTJ.data[i0].JtJ[11] = Jt.z * Jt.z;
-    JTJ.data[i0].JtJ[12] = Jt.z * JR.x;
-    JTJ.data[i0].JtJ[13] = Jt.z * JR.y;
-    JTJ.data[i0].JtJ[14] = Jt.z * JR.z;
-    JTJ.data[i0].JtJ[15] = JR.x * JR.x;
-    JTJ.data[i0].JtJ[16] = JR.x * JR.y;
-    JTJ.data[i0].JtJ[17] = JR.x * JR.z;
-    JTJ.data[i0].JtJ[18] = JR.y * JR.y;
-    JTJ.data[i0].JtJ[19] = JR.y * JR.z;
-    JTJ.data[i0].JtJ[20] = JR.z * JR.z;
+    JTJ.data[i].weight  = 1.0f;
+    JTJ.data[i].error   = e * e;
+    JTJ.data[i].Jte[0]  = e * Jt.x;
+    JTJ.data[i].Jte[1]  = e * Jt.y;
+    JTJ.data[i].Jte[2]  = e * Jt.z;
+    JTJ.data[i].Jte[3]  = e * JR.x;
+    JTJ.data[i].Jte[4]  = e * JR.y;
+    JTJ.data[i].Jte[5]  = e * JR.z;
+    JTJ.data[i].JtJ[0]  = Jt.x * Jt.x;
+    JTJ.data[i].JtJ[1]  = Jt.x * Jt.y;
+    JTJ.data[i].JtJ[2]  = Jt.x * Jt.z;
+    JTJ.data[i].JtJ[3]  = Jt.x * JR.x;
+    JTJ.data[i].JtJ[4]  = Jt.x * JR.y;
+    JTJ.data[i].JtJ[5]  = Jt.x * JR.z;
+    JTJ.data[i].JtJ[6]  = Jt.y * Jt.y;
+    JTJ.data[i].JtJ[7]  = Jt.y * Jt.z;
+    JTJ.data[i].JtJ[8]  = Jt.y * JR.x;
+    JTJ.data[i].JtJ[9]  = Jt.y * JR.y;
+    JTJ.data[i].JtJ[10] = Jt.y * JR.z;
+    JTJ.data[i].JtJ[11] = Jt.z * Jt.z;
+    JTJ.data[i].JtJ[12] = Jt.z * JR.x;
+    JTJ.data[i].JtJ[13] = Jt.z * JR.y;
+    JTJ.data[i].JtJ[14] = Jt.z * JR.z;
+    JTJ.data[i].JtJ[15] = JR.x * JR.x;
+    JTJ.data[i].JtJ[16] = JR.x * JR.y;
+    JTJ.data[i].JtJ[17] = JR.x * JR.z;
+    JTJ.data[i].JtJ[18] = JR.y * JR.y;
+    JTJ.data[i].JtJ[19] = JR.y * JR.z;
+    JTJ.data[i].JtJ[20] = JR.z * JR.z;
 }
 
 
@@ -293,6 +303,15 @@ static void compute_depth_map(const image<uint16_t>* rmap, image<float>* dmap, i
 }
 
 
+static void bilateral_filter(const image<float>* rmap, image<float>* dmap, intrinsics K, float d_sigma, float r_sigma)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+}
+
+
 static void compute_vertex_map(const image<float>* dmap, image<float3>* vmap, intrinsics K)
 {
     dim3 block_size(16, 16);
@@ -313,29 +332,98 @@ static void compute_normal_map(const image<float3>* vmap, image<float3>* nmap, i
 }
 
 
-static void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dmap, intrinsics K, mat4x4 P, float mu)
+static void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dmap, intrinsics K, mat4x4 T, float mu)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
     grid_size.x = divup(vol->dimension.x, block_size.x);
     grid_size.y = divup(vol->dimension.y, block_size.y);
     grid_size.z = divup(vol->dimension.z, block_size.z);
-    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dmap->gpu(), K, P, mu);
+    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dmap->gpu(), K, T, mu);
 }
 
 
-static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, image<float3>* nmap, intrinsics K, mat4x4 P, float near, float far)
+static void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vmap, image<float3>* nmap, intrinsics K, mat4x4 T, float near, float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), nmap->gpu(), K, P, near, far);
+    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vmap->gpu(), nmap->gpu(), K, T, near, far);
+}
+
+
+static Eigen::Matrix3f rodrigues(float3 w)
+{
+    float theta = length(w);
+    Eigen::Matrix3f I = Eigen::Matrix3f::Identity();
+    Eigen::Matrix3f R = I;
+
+    if (theta >= FLT_EPSILON) {
+        float c = cos(theta);
+        float s = sin(theta);
+        float inv_theta = theta != 0 ? 1.0f / theta : 0.0f;
+
+        Eigen::Matrix3f G;
+        G << 0.0f, -w.z,  w.y,
+              w.z, 0.0f, -w.x,
+             -w.y,  w.x, 0.0f;
+        R = I + inv_theta * s * G
+            + (1 - c) * inv_theta * inv_theta * G * G;
+    }
+
+    return R;
+}
+
+
+static mat4x4 solve_icp_p2p(JtJse3 J)
+{
+    Eigen::Matrix<float, 6, 6> A;
+    Eigen::Matrix<float, 6, 1> b;
+    Eigen::Matrix<float, 6, 1> x;
+
+    b(0) = J.Jte[0];
+    b(1) = J.Jte[1];
+    b(2) = J.Jte[2];
+    b(3) = J.Jte[3];
+    b(4) = J.Jte[4];
+    b(5) = J.Jte[5];
+
+    A(0, 0) = J.JtJ[0];
+    A(0, 1) = A(1, 0) = J.JtJ[1];
+    A(0, 2) = A(2, 0) = J.JtJ[2];
+    A(0, 3) = A(3, 0) = J.JtJ[3];
+    A(0, 4) = A(4, 0) = J.JtJ[4];
+    A(0, 5) = A(5, 0) = J.JtJ[5];
+    A(1, 1) = J.JtJ[6];
+    A(1, 2) = A(2, 1) = J.JtJ[7];
+    A(1, 3) = A(3, 1) = J.JtJ[8];
+    A(1, 4) = A(4, 1) = J.JtJ[9];
+    A(1, 5) = A(5, 1) = J.JtJ[10];
+    A(2, 2) = J.JtJ[11];
+    A(2, 3) = A(3, 2) = J.JtJ[12];
+    A(2, 4) = A(4, 2) = J.JtJ[13];
+    A(2, 5) = A(5, 2) = J.JtJ[14];
+    A(3, 3) = J.JtJ[15];
+    A(3, 4) = A(4, 3) = J.JtJ[16];
+    A(3, 5) = A(5, 3) = J.JtJ[17];
+    A(4, 4) = J.JtJ[18];
+    A(4, 5) = A(5, 4) = J.JtJ[19];
+    A(5, 5) = J.JtJ[20];
+
+    Eigen::JacobiSVD<Eigen::Matrix<float, 6, 6>>
+        svd(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+    x = svd.solve(b);
+
+    Eigen::Matrix3f R = rodrigues({x(3), x(4), x(5)});
+    Eigen::Vector3f t = {x(0), x(1), x(2)};
+
+    return mat4x4{R, t};
 }
 
 
 static mat4x4 icp_p2p_se3(image<float3>* vmap0, image<float3>* nmap0, image<float3>* vmap1, image<float3>* nmap1,
-                          intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+                          image<uint8_t>* tmap, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold, float& error)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
@@ -348,16 +436,24 @@ static mat4x4 icp_p2p_se3(image<float3>* vmap0, image<float3>* nmap0, image<floa
     JTJ.resize(K.width, K.height, ALLOCATOR_DEVICE);
     Axb.resize(reduce_size, 1, ALLOCATOR_MAPPED);
 
-    icp_p2p_se3_kernel<<<grid_size, block_size>>>(JTJ.gpu(), vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), K, T, dist_threshold, angle_threshold);
+    icp_p2p_se3_kernel<<<grid_size, block_size>>>(JTJ.gpu(), vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), tmap->gpu(), K, T, dist_threshold, angle_threshold);
     se3_reduce_kernel<<<reduce_size, reduce_threads, reduce_threads * sizeof(JtJse3)>>>(JTJ.gpu(), Axb.gpu());
     cudaDeviceSynchronize();
 
     for (int i = 1; i < reduce_size; ++i)
         Axb.data[0] += Axb.data[i];
 
+    mat4x4 delta;
+    float rmse = Axb.data[0].error / Axb.data[0].weight;
+    printf("%f %f %f\n", rmse, Axb.data[0].error, Axb.data[0].weight);
+    if (rmse < error && Axb.data[0].weight > 0) {
+        delta = solve_icp_p2p(Axb.data[0]);
+        error = rmse;
+    }
+
     JTJ.deallocate();
     Axb.deallocate();
-    return T;
+    return delta;
 }
 
 
@@ -398,10 +494,13 @@ void pipeline::process()
 void pipeline::preprocess()
 {
     dmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
+    dmaps[0].resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
     vmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
     nmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
+    tmap.resize(rmap.width, rmap.height, ALLOCATOR_MAPPED);
 
     compute_depth_map(&rmap, &dmap, cam->K, cutoff);
+    // bilateral_filter(&dmap, &dmaps[0]);
     compute_vertex_map(&dmap, &vmap, cam->K);
     compute_normal_map(&vmap, &nmap, cam->K);
 }
@@ -409,7 +508,7 @@ void pipeline::preprocess()
 
 void pipeline::integrate()
 {
-    integrate_volume(vol, &dmap, cam->K, P, mu);
+    integrate_volume(vol, &dmap, cam->K, P.inverse(), mu);
 }
 
 
@@ -424,11 +523,14 @@ void pipeline::raycast()
 void pipeline::track()
 {
     mat4x4 T = P;
-
-    mat4x4 delta = icp_p2p_se3(&vmap, &nmap, &rvmap, &rnmap, cam->K, T, dist_threshold, angle_threshold);
-    T = delta * T;
-
+    float error = FLT_MAX;
+    for (int i = 0; i < icp_num_iterations; ++i) {
+        mat4x4 delta = icp_p2p_se3(&vmap, &nmap, &rvmap, &rnmap, &tmap, cam->K, T, dist_threshold, angle_threshold, error);
+        T = delta * T;
+    }
     P = T;
+    print_mat4x4(stdout, P);
+    printf("\n");
 }
 
 

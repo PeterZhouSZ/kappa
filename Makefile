@@ -2,7 +2,7 @@ TARGET = bin/kinfu
 CXX = g++
 NVCC = nvcc
 
-INCLUDES = -I/usr/local/cuda/include -Iinclude
+INCLUDES = -I/usr/local/cuda/include -I/usr/include/eigen3 -Iinclude
 DEFINES =
 CXXFLAGS = -O2 -Wall -std=c++11 -ffast-math $(INCLUDES) $(DEFINES)
 NVCCFLAGS = -O2 -std=c++11 -arch=sm_35 -lineinfo $(INCLUDES) $(DEFINES)

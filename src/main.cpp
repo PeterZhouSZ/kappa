@@ -12,9 +12,10 @@ int main(int argc, char** argv)
         fprintf(stdout, "[GLFW] failed to init!\n");
         exit(1);
     }
-    GLFWwindow* win = glfwCreateWindow(640, 480, "kinfu", NULL, NULL);
+    GLFWwindow* win = glfwCreateWindow(1280, 480, "kinfu", NULL, NULL);
     glfwMakeContextCurrent(win);
 
+    // camera cam{"/media/sutd/storage/scenenn/011/011.oni"};
     camera cam;
     cam.set_resolution(RESOLUTION_VGA);
     cam.K.cx = 320.0f;
@@ -45,10 +46,10 @@ int main(int argc, char** argv)
 
         glMatrixMode(GL_MODELVIEW);
         glLoadIdentity();
-        glViewport(0, 0, 640, 480);
+        glViewport(0, 0, 1280, 480);
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
-        glOrtho(0, 640, 480, 0, -1 , 1);
+        glOrtho(0, 1280, 480, 0, -1 , 1);
 
         pipe.process();
         r.render_phong(&im, &pipe.rvmap, &pipe.rnmap);
@@ -56,6 +57,8 @@ int main(int argc, char** argv)
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
         glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
+        glRasterPos2i(640, 0);
+        glDrawPixels(pipe.tmap.width, pipe.tmap.height, GL_RGB, GL_UNSIGNED_BYTE_3_3_2, pipe.tmap.data);
         glfwSwapBuffers(win);
     }
 

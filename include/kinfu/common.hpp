@@ -1,6 +1,8 @@
 #pragma once
 #include <stdio.h>
 #include <cuda_runtime_api.h>
+#include <Eigen/Core>
+#include <Eigen/LU>
 
 
 enum allocator {
@@ -37,6 +39,29 @@ struct mat4x4 {
         rows[1] = {0.0f, 1.0f, 0.0f, 0.0f};
         rows[2] = {0.0f, 0.0f, 1.0f, 0.0f};
         rows[3] = {0.0f, 0.0f, 0.0f, 1.0f};
+    }
+
+    mat4x4(const Eigen::Matrix4f& m)
+    {
+        rows[0] = {m(0, 0), m(0, 1), m(0, 2), m(0, 3)};
+        rows[1] = {m(1, 0), m(1, 1), m(1, 2), m(1, 3)};
+        rows[2] = {m(2, 0), m(2, 1), m(2, 2), m(2, 3)};
+        rows[3] = {m(3, 0), m(3, 1), m(3, 2), m(3, 3)};
+    }
+
+    mat4x4(const Eigen::Matrix3f& R, const Eigen::Vector3f& t)
+    {
+        rows[0] = {R(0, 0), R(0, 1), R(0, 2), t(0)};
+        rows[1] = {R(1, 0), R(1, 1), R(1, 2), t(1)};
+        rows[2] = {R(2, 0), R(2, 1), R(2, 2), t(2)};
+        rows[3] = {   0.0f,    0.0f,    0.0f, 1.0f};
+    }
+
+    mat4x4 inverse() const
+    {
+        Eigen::Map<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>> m((float*)data);
+        Eigen::Matrix4f i = m.inverse();
+        return mat4x4(i);
     }
 
     union {
@@ -93,9 +118,9 @@ __host__ __device__
 inline float3 rotate(mat4x4 A, float3 v)
 {
     float3 u;
-    u.x = A.m00 * v.x + A.m01 * v.y + A.m02 + v.z;
-    u.y = A.m10 * v.x + A.m11 * v.y + A.m12 + v.z;
-    u.z = A.m20 * v.x + A.m21 * v.y + A.m22 + v.z;
+    u.x = A.m00 * v.x + A.m01 * v.y + A.m02 * v.z;
+    u.y = A.m10 * v.x + A.m11 * v.y + A.m12 * v.z;
+    u.z = A.m20 * v.x + A.m21 * v.y + A.m22 * v.z;
     return u;
 }
 
@@ -108,10 +133,10 @@ inline int divup(int a, int b)
 
 inline void print_mat4x4(FILE* fp, mat4x4 M)
 {
-    printf("%.3f %.3f %.3f %.3f\n"
-           "%.3f %.3f %.3f %.3f\n"
-           "%.3f %.3f %.3f %.3f\n"
-           "%.3f %.3f %.3f %.3f\n",
+    printf("%f %f %f %f\n"
+           "%f %f %f %f\n"
+           "%f %f %f %f\n"
+           "%f %f %f %f\n",
            M.m00, M.m01, M.m02, M.m03,
            M.m10, M.m11, M.m12, M.m13,
            M.m20, M.m21, M.m22, M.m23,

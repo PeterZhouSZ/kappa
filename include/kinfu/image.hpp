@@ -1,4 +1,5 @@
 #pragma once
+#include <stdlib.h>
 #include <stdint.h>
 #include <cuda_runtime_api.h>
 #include "common.hpp"
@@ -43,6 +44,7 @@ void image<T>::allocate(int width, int height, allocator alloc)
     size_t size = width * height * sizeof(T);
     switch (alloc) {
         case ALLOCATOR_HOST:
+            this->data = (T*)malloc(size);
             break;
         case ALLOCATOR_DEVICE:
             cudaMalloc((void**)(&data), size);
@@ -59,6 +61,7 @@ void image<T>::deallocate()
 {
     switch (this->alloc) {
         case ALLOCATOR_HOST:
+            free(this->data);
             break;
         case ALLOCATOR_DEVICE:
             cudaFree(this->data);
@@ -82,6 +85,7 @@ image<T> image<T>::gpu() const
     im.alloc = ALLOCATOR_DEVICE;
     switch (this->alloc) {
         case ALLOCATOR_HOST:
+            im.data = NULL;
             break;
         case ALLOCATOR_DEVICE:
             im.data = this->data;
