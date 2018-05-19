@@ -74,6 +74,43 @@ float3 grad_tsdf(volume<sdf32f_t> vol, float3 p)
 
 
 __global__
+void bilateral_filter_kernel(image<float> dmap0, image<float> dmap1, intrinsics K, float d_sigma, float r_sigma)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
+
+    int i = u + v * K.width;
+    dmap1.data[i] = 0.0f;
+    float p = dmap0.data[i];
+    if (p == 0.0f) return;
+
+    float sum = 0.0f;
+    float count = 0.0f;
+    float inv_r_sigma2 = -1.0f / (2.0f * r_sigma * r_sigma);
+    float inv_d_sigma2 = -1.0f / (2.0f * d_sigma * d_sigma);
+
+    int radius = 2;
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            int x = u + dx;
+            int y = v + dy;
+            if (x < 0 || x >= K.width || y < 0 || y >= K.height) continue;
+
+            float q = dmap0.data[x + y * K.width];
+            if (q == 0.0f) continue;
+
+            float w_r = __expf(dx * dx * inv_r_sigma2) * __expf(dy * dy * inv_r_sigma2);
+            float w_d = __expf((p - q) * (p - q) * inv_d_sigma2);
+            sum += q * w_r * w_d;
+            count += w_r * w_d;
+        }
+    }
+    dmap1.data[i] = (sum / count);
+}
+
+
+__global__
 void compute_depth_kernel(image<uint16_t> rmap, image<float> dmap, intrinsics K, float cutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
@@ -143,7 +180,7 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dmap, intrinsics
     if (u < 0 || u >= K.width || v < 0 || v >= K.height) return;
 
     float d = dmap.data[u + v * K.width];
-    if (d <= 0.0f) return;
+    if (d == 0.0f) return;
 
     float dist = d - q.z;
     if (dist <= -mu) return;
@@ -188,18 +225,20 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
     if (ftt < 0.0f) z += step * ftt / (ft - ftt);
     else z = -1.0f;
 
-    p = {0.0f, 0.0f, 0.0f};
-    if (z > 0.0f) p = origin + direction * z;
-
     int i = u + v * K.width;
-    vmap.data[i] = p;
-    nmap.data[i] = grad_tsdf(vol, p);
+    vmap.data[i] = {0.0f, 0.0f, 0.0f};
+    nmap.data[i] = {0.0f, 0.0f, 0.0f};
+    if (z >= 0.0f) {
+        p = origin + direction * z;
+        vmap.data[i] = p;
+        nmap.data[i] = grad_tsdf(vol, p);
+    }
 }
 
 
 __global__
 void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vmap0, image<float3> nmap0, image<float3> vmap1, image<float3> nmap1,
-                        image<uint8_t> tmap, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+                        intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -208,31 +247,18 @@ void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vmap0, image<float3> nm
     int i = u + v * K.width;
     JTJ.data[i].error = 0.0f;
     JTJ.data[i].weight = 0.0f;
-    tmap.data[i] = 0xff;
 
     float3 p0 = T * vmap0.data[i];
     float3 n0 = rotate(T, nmap0.data[i]);
-    if (p0.z == 0.0f) {
-        tmap.data[i] = 0x00;
-        return;
-    }
+    if (p0.z == 0.0f) return;
 
     float3 p1 = vmap1.data[i];
     float3 n1 = nmap1.data[i];
-    if (p1.z == 0.0f) {
-        tmap.data[i] = 0x00;
-        return;
-    }
+    if (p1.z == 0.0f) return;
 
     float3 d = p1 - p0;
-    if (length(d) >= dist_threshold) {
-        tmap.data[i] = 0x08;
-        return;
-    }
-    if (fabs(dot(n0, n1)) < angle_threshold) {
-        tmap.data[i] = 0x80;
-        return;
-    }
+    if (length(d) >= dist_threshold) return;
+    if (fabs(dot(n0, n1)) < angle_threshold) return;
 
     float e = dot(d, n1);
     float3 Jt = n1;
@@ -303,12 +329,13 @@ static void compute_depth_map(const image<uint16_t>* rmap, image<float>* dmap, i
 }
 
 
-static void bilateral_filter(const image<float>* rmap, image<float>* dmap, intrinsics K, float d_sigma, float r_sigma)
+static void bilateral_filter(const image<float>* dmap0, image<float>* dmap1, intrinsics K, float d_sigma, float r_sigma)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
+    bilateral_filter_kernel<<<grid_size, block_size>>>(dmap0->gpu(), dmap1->gpu(), K, d_sigma, r_sigma);
 }
 
 
@@ -423,7 +450,7 @@ static mat4x4 solve_icp_p2p(JtJse3 J)
 
 
 static mat4x4 icp_p2p_se3(image<float3>* vmap0, image<float3>* nmap0, image<float3>* vmap1, image<float3>* nmap1,
-                          image<uint8_t>* tmap, intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold, float& error)
+                          intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold, float& error)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
@@ -436,7 +463,7 @@ static mat4x4 icp_p2p_se3(image<float3>* vmap0, image<float3>* nmap0, image<floa
     JTJ.resize(K.width, K.height, ALLOCATOR_DEVICE);
     Axb.resize(reduce_size, 1, ALLOCATOR_MAPPED);
 
-    icp_p2p_se3_kernel<<<grid_size, block_size>>>(JTJ.gpu(), vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), tmap->gpu(), K, T, dist_threshold, angle_threshold);
+    icp_p2p_se3_kernel<<<grid_size, block_size>>>(JTJ.gpu(), vmap0->gpu(), nmap0->gpu(), vmap1->gpu(), nmap1->gpu(), K, T, dist_threshold, angle_threshold);
     se3_reduce_kernel<<<reduce_size, reduce_threads, reduce_threads * sizeof(JtJse3)>>>(JTJ.gpu(), Axb.gpu());
     cudaDeviceSynchronize();
 
@@ -444,12 +471,8 @@ static mat4x4 icp_p2p_se3(image<float3>* vmap0, image<float3>* nmap0, image<floa
         Axb.data[0] += Axb.data[i];
 
     mat4x4 delta;
-    float rmse = Axb.data[0].error / Axb.data[0].weight;
-    printf("%f %f %f\n", rmse, Axb.data[0].error, Axb.data[0].weight);
-    if (rmse < error && Axb.data[0].weight > 0) {
-        delta = solve_icp_p2p(Axb.data[0]);
-        error = rmse;
-    }
+    error = Axb.data[0].error / Axb.data[0].weight;
+    if (!isnan(error)) delta = solve_icp_p2p(Axb.data[0]);
 
     JTJ.deallocate();
     Axb.deallocate();
@@ -473,10 +496,13 @@ pipeline::~pipeline()
     rmap.deallocate();
     dmap.deallocate();
     cmap.deallocate();
-    vmap.deallocate();
-    nmap.deallocate();
-    rvmap.deallocate();
-    rnmap.deallocate();
+    for (int level = 0; level < num_levels; ++level) {
+        dmaps[level].deallocate();
+        vmaps[level].deallocate();
+        nmaps[level].deallocate();
+        rvmaps[level].deallocate();
+        rnmaps[level].deallocate();
+    }
 }
 
 
@@ -493,16 +519,21 @@ void pipeline::process()
 
 void pipeline::preprocess()
 {
-    dmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
-    dmaps[0].resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
-    vmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
-    nmap.resize(rmap.width, rmap.height, ALLOCATOR_DEVICE);
-    tmap.resize(rmap.width, rmap.height, ALLOCATOR_MAPPED);
+    dmap.resize(cam->K.width, cam->K.height, ALLOCATOR_DEVICE);
+    for (int level = 0; level < num_levels; ++level) {
+        int width = cam->K.width >> level;
+        int height = cam->K.height >> level;
+        dmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+        vmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+        nmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+        rvmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+        rnmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+    }
 
     compute_depth_map(&rmap, &dmap, cam->K, cutoff);
-    // bilateral_filter(&dmap, &dmaps[0]);
-    compute_vertex_map(&dmap, &vmap, cam->K);
-    compute_normal_map(&vmap, &nmap, cam->K);
+    bilateral_filter(&dmap, &dmaps[0], cam->K, bilateral_d_sigma, bilateral_r_sigma);
+    compute_vertex_map(&dmaps[0], &vmaps[0], cam->K);
+    compute_normal_map(&vmaps[0], &nmaps[0], cam->K);
 }
 
 
@@ -514,22 +545,25 @@ void pipeline::integrate()
 
 void pipeline::raycast()
 {
-    rvmap.resize(vmap.width, vmap.height, ALLOCATOR_DEVICE);
-    rnmap.resize(nmap.width, nmap.height, ALLOCATOR_DEVICE);
-    raycast_volume(vol, &rvmap, &rnmap, cam->K, P, near, far);
+    raycast_volume(vol, &rvmaps[0], &rnmaps[0], cam->K, P, near, far);
 }
 
 
 void pipeline::track()
 {
     mat4x4 T = P;
-    float error = FLT_MAX;
+    float last_error = FLT_MAX;
     for (int i = 0; i < icp_num_iterations; ++i) {
-        mat4x4 delta = icp_p2p_se3(&vmap, &nmap, &rvmap, &rnmap, &tmap, cam->K, T, dist_threshold, angle_threshold, error);
+        float error;
+        mat4x4 delta = icp_p2p_se3(&vmaps[0], &nmaps[0], &rvmaps[0], &rnmaps[0], cam->K, T, dist_threshold, angle_threshold, error);
+        printf("%f\n", error);
+        if (isnan(error) || error > last_error) break;
         T = delta * T;
+        last_error = error;
     }
     P = T;
     print_mat4x4(stdout, P);
+    printf("%d\n", frame);
     printf("\n");
 }
 

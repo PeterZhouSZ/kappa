@@ -15,8 +15,8 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(1280, 480, "kinfu", NULL, NULL);
     glfwMakeContextCurrent(win);
 
-    // camera cam{"/media/sutd/storage/scenenn/011/011.oni"};
-    camera cam;
+    // camera cam;
+    camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
     cam.set_resolution(RESOLUTION_VGA);
     cam.K.cx = 320.0f;
     cam.K.cy = 240.0f;
@@ -28,8 +28,8 @@ int main(int argc, char** argv)
 
     volume<sdf32f_t> vol;
     int3 dimension = {512, 512, 512};
-    vol.voxel_size = 0.004f;
-    vol.offset = {-1.0f, -1.0f, 0.0f};
+    vol.voxel_size = 0.008f;
+    vol.offset = {-2.0f, -2.0f, 0.0f};
     vol.allocate(dimension, ALLOCATOR_DEVICE);
 
     pipeline pipe;
@@ -40,6 +40,7 @@ int main(int argc, char** argv)
     renderer r;
     r.K = cam.K;
 
+    FILE* fp = fopen("/media/sutd/storage/scenenn/011/trajectory.log", "r");
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -51,14 +52,22 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 1280, 480, 0, -1 , 1);
 
+        // fscanf(fp, "%*d %*d %*d\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n",
+        //        &pipe.P.m00, &pipe.P.m01, &pipe.P.m02, &pipe.P.m03,
+        //        &pipe.P.m10, &pipe.P.m11, &pipe.P.m12, &pipe.P.m13,
+        //        &pipe.P.m20, &pipe.P.m21, &pipe.P.m22, &pipe.P.m23,
+        //        &pipe.P.m30, &pipe.P.m31, &pipe.P.m32, &pipe.P.m33);
+
         pipe.process();
-        r.render_phong(&im, &pipe.rvmap, &pipe.rnmap);
+        r.render_phong(&im, &pipe.rvmaps[0], &pipe.rnmaps[0]);
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
         glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
-        glRasterPos2i(640, 0);
-        glDrawPixels(pipe.tmap.width, pipe.tmap.height, GL_RGB, GL_UNSIGNED_BYTE_3_3_2, pipe.tmap.data);
         glfwSwapBuffers(win);
     }
 

@@ -9,8 +9,10 @@ camera::camera(const char* uri)
     status = device.open(uri);
     status = depth.create(device, SENSOR_DEPTH);
     status = color.create(device, SENSOR_COLOR);
-    status = depth.setMirroringEnabled(false);
-    status = color.setMirroringEnabled(false);
+    if (depth.isPropertySupported(openni::STREAM_PROPERTY_MIRRORING))
+        status = depth.setMirroringEnabled(false);
+    if (color.isPropertySupported(openni::STREAM_PROPERTY_MIRRORING))
+        status = color.setMirroringEnabled(false);
     assert(status == STATUS_OK);
 }
 
