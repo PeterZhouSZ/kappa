@@ -12,7 +12,7 @@ float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
         y < 0 || y >= vol.dimension.y ||
         z < 0 || z >= vol.dimension.z)
         return 1.0f; // cannot interpolate
-    return vol.data[i].tsdf;
+    return vol.data[i].weight ? vol.data[i].tsdf : 1.0f;
 }
 
 
@@ -213,7 +213,8 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vmap, image<float
     float z = near;
     float3 p = origin + direction * z;
 
-    float ft, ftt;
+    float ft = nearest_tsdf(vol, p);
+    float ftt;
     float step = vol.voxel_size;
     for (; z <= far; z += step) {
         p = origin + direction * z;
@@ -556,15 +557,11 @@ void pipeline::track()
     for (int i = 0; i < icp_num_iterations; ++i) {
         float error;
         mat4x4 delta = icp_p2p_se3(&vmaps[0], &nmaps[0], &rvmaps[0], &rnmaps[0], cam->K, T, dist_threshold, angle_threshold, error);
-        printf("%f\n", error);
         if (isnan(error) || error > last_error) break;
         T = delta * T;
         last_error = error;
     }
     P = T;
-    print_mat4x4(stdout, P);
-    printf("%d\n", frame);
-    printf("\n");
 }
 
 

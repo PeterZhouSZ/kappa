@@ -40,7 +40,6 @@ int main(int argc, char** argv)
     renderer r;
     r.K = cam.K;
 
-    FILE* fp = fopen("/media/sutd/storage/scenenn/011/trajectory.log", "r");
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -51,16 +50,6 @@ int main(int argc, char** argv)
         glMatrixMode(GL_PROJECTION);
         glLoadIdentity();
         glOrtho(0, 1280, 480, 0, -1 , 1);
-
-        // fscanf(fp, "%*d %*d %*d\n"
-        //        "%f %f %f %f\n"
-        //        "%f %f %f %f\n"
-        //        "%f %f %f %f\n"
-        //        "%f %f %f %f\n",
-        //        &pipe.P.m00, &pipe.P.m01, &pipe.P.m02, &pipe.P.m03,
-        //        &pipe.P.m10, &pipe.P.m11, &pipe.P.m12, &pipe.P.m13,
-        //        &pipe.P.m20, &pipe.P.m21, &pipe.P.m22, &pipe.P.m23,
-        //        &pipe.P.m30, &pipe.P.m31, &pipe.P.m32, &pipe.P.m33);
 
         pipe.process();
         r.render_phong(&im, &pipe.rvmaps[0], &pipe.rnmaps[0]);
