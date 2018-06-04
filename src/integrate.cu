@@ -2,7 +2,7 @@
 
 
 __global__
-void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K, mat4x4 T, float mu)
+void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K, mat4x4 T, float mu, float max_weight)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
@@ -30,16 +30,16 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     float ft  = vol.data[i].tsdf;
     float wt  = vol.data[i].weight;
     vol.data[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);
-    vol.data[i].weight = wt + wtt;
+    vol.data[i].weight = fminf(wt + wtt, max_weight);
 }
 
 
-void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu)
+void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float max_weight)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
     grid_size.x = divup(vol->dimension.x, block_size.x);
     grid_size.y = divup(vol->dimension.y, block_size.y);
     grid_size.z = divup(vol->dimension.z, block_size.z);
-    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T, mu);
+    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T, mu, max_weight);
 }

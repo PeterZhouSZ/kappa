@@ -26,6 +26,18 @@ void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float3>
     im.data[i] = {gray, gray, gray};
 }
 
+__global__
+void render_normal_kernel(image<rgb8_t> im, image<float3> nm, intrinsics K)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
+
+    int i = u + v * K.width;
+    float3 color = 255.0f * fabs(nm.data[i]);
+    im.data[i] = {(uint8_t)color.x, (uint8_t)color.y, (uint8_t)color.z};
+}
+
 
 void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float3>* nm, intrinsics K)
 {
@@ -34,4 +46,14 @@ void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     render_phong_light_kernel<<<grid_size, block_size>>>(im->gpu(), vm->gpu(), nm->gpu(), K);
+}
+
+
+void render_normal(image<rgb8_t>* im, const image<float3>* nm, intrinsics K)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+    render_normal_kernel<<<grid_size, block_size>>>(im->gpu(), nm->gpu(), K);
 }

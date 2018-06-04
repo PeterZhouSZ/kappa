@@ -7,9 +7,6 @@
 #include <kinfu/pipeline.hpp>
 
 
-volume<sdf32f_t> vol;
-camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
-
 constexpr int num_levels = 3;
 int frame = 0;
 int icp_num_iterations = 10;
@@ -17,12 +14,11 @@ float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float bilateral_d_sigma = 0.1f;
 float bilateral_r_sigma = 4.0f;
+float max_weight = 100.0f;
 float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
 float mu = 0.1f;
-mat4x4 P;
-std::vector<mat4x4> poses;
 
 image<rgb8_t>   im;
 image<uint16_t> rm;
@@ -33,6 +29,10 @@ image<float3>   vmaps[num_levels];
 image<float3>   nmaps[num_levels];
 image<float3>   rvmaps[num_levels];
 image<float3>   rnmaps[num_levels];
+
+volume<sdf32f_t> vol;
+camera cam;
+mat4x4 pose;
 
 
 static void preallocate()
@@ -53,14 +53,14 @@ static void preallocate()
 static void preprocess()
 {
     compute_depth_map(&rm, &dm, cam.K, cutoff);
-    bilateral_filter(&dm, &dmaps[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
+    depth_bilateral(&dm, &dmaps[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
     compute_vertex_map(&dmaps[0], &vmaps[0], cam.K);
     compute_normal_map(&vmaps[0], &nmaps[0], cam.K);
 }
 
 static void track()
 {
-    P = icp_p2p_se3(&vmaps[0], &nmaps[0], &rvmaps[0], &rnmaps[0], cam.K, P, icp_num_iterations, dist_threshold, angle_threshold);
+    pose = icp_p2p_se3(&vmaps[0], &nmaps[0], &rvmaps[0], &rnmaps[0], cam.K, pose, icp_num_iterations, dist_threshold, angle_threshold);
 }
 
 
@@ -75,7 +75,6 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(640, 480, "kinfu", NULL, NULL);
     glfwMakeContextCurrent(win);
 
-    // camera cam;
     cam.set_resolution(RESOLUTION_VGA);
     cam.K.cx = 320.0f;
     cam.K.cy = 240.0f;
@@ -89,6 +88,7 @@ int main(int argc, char** argv)
     vol.voxel_size = 0.008f;
     vol.offset = {-2.0f, -2.0f, 0.0f};
     vol.allocate(dimension, ALLOCATOR_DEVICE);
+    reset_volume(&vol);
 
     preallocate();
 
@@ -106,8 +106,8 @@ int main(int argc, char** argv)
         cam.read(&rm, &cm);
         preprocess();
         if (frame > 0) track();
-        integrate_volume(&vol, &dm, cam.K, P.inverse(), mu);
-        raycast_volume(&vol, &rvmaps[0], &rnmaps[0], cam.K, P, near, far);
+        integrate_volume(&vol, &dm, cam.K, pose.inverse(), mu, max_weight);
+        raycast_volume(&vol, &rvmaps[0], &rnmaps[0], cam.K, pose, near, far);
         render_phong_light(&im, &rvmaps[0], &rnmaps[0], cam.K);
         frame++;
 

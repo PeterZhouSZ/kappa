@@ -9,15 +9,17 @@
 void compute_depth_map(const image<uint16_t>* rm, image<float>* dm, intrinsics K, float cutoff);
 void compute_vertex_map(const image<float>* dm, image<float3>* vm, intrinsics K);
 void compute_normal_map(const image<float3>* vm, image<float3>* nm, intrinsics K);
-void bilateral_filter(const image<float>* dm0, image<float>* dm1, intrinsics K, float d_sigma, float r_sigma);
+void depth_bilateral(const image<float>* dm0, image<float>* dm1, intrinsics K, float d_sigma, float r_sigma);
 
-void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu);
+void reset_volume(volume<sdf32f_t>* vol);
+void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float max_weight);
 void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float near, float far);
 
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);
 
 void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float3>* nm, intrinsics K);
+void render_normal(image<rgb8_t>* im, const image<float3>* nm, intrinsics K);
 
 
 __device__
@@ -28,7 +30,7 @@ inline float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
         y < 0 || y >= vol.dimension.y ||
         z < 0 || z >= vol.dimension.z)
         return 1.0f; // cannot interpolate
-    return vol.data[i].weight ? vol.data[i].tsdf : 1.0f;
+    return vol.data[i].tsdf;
 }
 
 
