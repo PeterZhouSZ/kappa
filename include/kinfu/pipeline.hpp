@@ -2,46 +2,88 @@
 #include <vector>
 #include "camera.hpp"
 #include "common.hpp"
-#include "point_cloud.hpp"
+#include "math.hpp"
 #include "volume.hpp"
 
 
-struct pipeline {
-    static constexpr int num_levels = 3;
+void compute_depth_map(const image<uint16_t>* rm, image<float>* dm, intrinsics K, float cutoff);
+void compute_vertex_map(const image<float>* dm, image<float3>* vm, intrinsics K);
+void compute_normal_map(const image<float3>* vm, image<float3>* nm, intrinsics K);
+void bilateral_filter(const image<float>* dm0, image<float>* dm1, intrinsics K, float d_sigma, float r_sigma);
 
-    pipeline();
-    ~pipeline();
+void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu);
+void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float near, float far);
 
-    void process();
+mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1,
+                   intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);
 
-    void preprocess();
-    void integrate();
-    void raycast();
-    void track();
-    void extract_point_cloud(point_cloud* pc);
+void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float3>* nm, intrinsics K);
 
-    volume<sdf32f_t>* vol = NULL;
 
-    camera* cam = NULL;
-    int frame = 0;
-    int icp_num_iterations = 10;
-    float dist_threshold = 0.05f;
-    float angle_threshold = 0.8f;
-    float bilateral_d_sigma = 0.1f;
-    float bilateral_r_sigma = 4.0f;
-    float cutoff = 4.0f;
-    float near = 0.001f;
-    float far = 4.0f;
-    float mu = 0.1f;
-    mat4x4 P;
-    std::vector<mat4x4> poses;
+__device__
+inline float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
+{
+    int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
+    if (x < 0 || x >= vol.dimension.x ||
+        y < 0 || y >= vol.dimension.y ||
+        z < 0 || z >= vol.dimension.z)
+        return 1.0f; // cannot interpolate
+    return vol.data[i].weight ? vol.data[i].tsdf : 1.0f;
+}
 
-    image<uint16_t> rmap;
-    image<float>    dmap;
-    image<rgb8_t>   cmap;
-    image<float>    dmaps[num_levels];
-    image<float3>   vmaps[num_levels];
-    image<float3>   nmaps[num_levels];
-    image<float3>   rvmaps[num_levels];
-    image<float3>   rnmaps[num_levels];
-};
+
+__device__
+inline float nearest_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
+    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
+    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
+    return tsdf_at(vol, x, y, z);
+}
+
+
+__device__
+inline float interp_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    float3 q = (p - vol.offset) / vol.voxel_size;
+    int x = (int)q.x;
+    int y = (int)q.y;
+    int z = (int)q.z;
+    float a = q.x - x;
+    float b = q.y - y;
+    float c = q.z - z;
+
+    float tsdf = 0.0f;
+    tsdf += tsdf_at(vol, x + 0, y + 0, z + 0) * (1 - a) * (1 - b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 0, y + 0, z + 1) * (1 - a) * (1 - b) * (    c);
+    tsdf += tsdf_at(vol, x + 0, y + 1, z + 0) * (1 - a) * (    b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 0, y + 1, z + 1) * (1 - a) * (    b) * (    c);
+    tsdf += tsdf_at(vol, x + 1, y + 0, z + 0) * (    a) * (1 - b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 1, y + 0, z + 1) * (    a) * (1 - b) * (    c);
+    tsdf += tsdf_at(vol, x + 1, y + 1, z + 0) * (    a) * (    b) * (1 - c);
+    tsdf += tsdf_at(vol, x + 1, y + 1, z + 1) * (    a) * (    b) * (    c);
+    return tsdf;
+}
+
+
+__device__
+inline float3 grad_tsdf(volume<sdf32f_t> vol, float3 p)
+{
+    int x = roundf((p.x - vol.offset.x) / vol.voxel_size);
+    int y = roundf((p.y - vol.offset.y) / vol.voxel_size);
+    int z = roundf((p.z - vol.offset.z) / vol.voxel_size);
+
+    float3 grad;
+    float f0, f1;
+    f0 = tsdf_at(vol, x - 1, y, z);
+    f1 = tsdf_at(vol, x + 1, y, z);
+    grad.x = (f1 - f0) / vol.voxel_size;
+    f0 = tsdf_at(vol, x, y - 1, z);
+    f1 = tsdf_at(vol, x, y + 1, z);
+    grad.y = (f1 - f0) / vol.voxel_size;
+    f0 = tsdf_at(vol, x, y, z - 1);
+    f1 = tsdf_at(vol, x, y, z + 1);
+    grad.z = (f1 - f0) / vol.voxel_size;
+    if (length(grad) == 0.0f) return {0.0f, 0.0f, 0.0f};
+    return normalize(grad);
+}
