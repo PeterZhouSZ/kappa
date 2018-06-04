@@ -1,4 +1,4 @@
-TARGET = bin/kinfu
+TARGET = bin/demo
 CXX = g++
 NVCC = nvcc
 

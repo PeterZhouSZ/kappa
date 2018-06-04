@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <GLFW/glfw3.h>
-#include <kinfu/pipeline.hpp>
+#include <kappa/pipeline.hpp>
 
 
 constexpr int num_levels = 3;
@@ -72,7 +72,7 @@ int main(int argc, char** argv)
         fprintf(stdout, "[GLFW] failed to init!\n");
         exit(1);
     }
-    GLFWwindow* win = glfwCreateWindow(640, 480, "kinfu", NULL, NULL);
+    GLFWwindow* win = glfwCreateWindow(640, 480, "demo", NULL, NULL);
     glfwMakeContextCurrent(win);
 
     cam.set_resolution(RESOLUTION_VGA);

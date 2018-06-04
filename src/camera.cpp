@@ -1,4 +1,4 @@
-#include <kinfu/camera.hpp>
+#include <kappa/camera.hpp>
 
 
 using namespace openni;

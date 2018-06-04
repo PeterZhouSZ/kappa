@@ -1,4 +1,4 @@
-#include <kinfu/pipeline.hpp>
+#include <kappa/pipeline.hpp>
 #include <float.h>
 #include <Eigen/SVD>
 
