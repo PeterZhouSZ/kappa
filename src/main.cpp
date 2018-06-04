@@ -31,7 +31,7 @@ image<float3>   rvmaps[num_levels];
 image<float3>   rnmaps[num_levels];
 
 volume<sdf32f_t> vol;
-camera cam;
+camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
 mat4x4 pose;
 
 
@@ -107,7 +107,7 @@ int main(int argc, char** argv)
         preprocess();
         if (frame > 0) track();
         integrate_volume(&vol, &dm, cam.K, pose.inverse(), mu, max_weight);
-        raycast_volume(&vol, &rvmaps[0], &rnmaps[0], cam.K, pose, near, far);
+        raycast_volume(&vol, &rvmaps[0], &rnmaps[0], cam.K, pose, mu, near, far);
         render_phong_light(&im, &rvmaps[0], &rnmaps[0], cam.K);
         frame++;
 

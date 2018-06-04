@@ -2,7 +2,7 @@
 
 
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3> nm, intrinsics K, mat4x4 T, float near, float far)
+void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3> nm, intrinsics K, mat4x4 T, float mu, float near, float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -21,11 +21,13 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3>
 
     float ft = nearest_tsdf(vol, p);
     float ftt;
-    float step = vol.voxel_size;
+    float step = 0.8f * mu;
+    float min_step = vol.voxel_size;
     for (; z <= far; z += step) {
         p = origin + direction * z;
         ftt = interp_tsdf(vol, p);
         if (ftt < 0.0f) break;
+        step = fmaxf(0.8f * ftt * mu, min_step);
         ft = ftt;
     }
 
@@ -43,11 +45,11 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3>
 }
 
 
-void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float near, float far)
+void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float mu, float near, float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vm->gpu(), nm->gpu(), K, T, near, far);
+    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vm->gpu(), nm->gpu(), K, T, mu, near, far);
 }

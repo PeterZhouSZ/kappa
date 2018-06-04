@@ -13,7 +13,7 @@ void depth_bilateral(const image<float>* dm0, image<float>* dm1, intrinsics K, f
 
 void reset_volume(volume<sdf32f_t>* vol);
 void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float max_weight);
-void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float near, float far);
+void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float mu, float near, float far);
 
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);
