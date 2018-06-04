@@ -16,7 +16,7 @@ all: $(TARGET)
 
 $(TARGET): $(OBJECTS)
 	mkdir -p $(dir $@)
-	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 
 bin/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
@@ -24,7 +24,7 @@ bin/%.cpp.o: %.cpp
 
 bin/%.cu.o: %.cu
 	mkdir -p $(dir $@)
-	$(NVCC) $(NVCCFLAGS) -c -o $@ $<
+	$(NVCC) $(NVCCFLAGS) -dc -c -o $@ $<
 
 .PHONY: clean
 

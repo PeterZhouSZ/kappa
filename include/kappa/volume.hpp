@@ -29,6 +29,11 @@ struct volume {
     allocator alloc;
 };
 
+__device__ float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z);
+__device__ float nearest_tsdf(volume<sdf32f_t> vol, float3 p);
+__device__ float interp_tsdf(volume<sdf32f_t> vol, float3 p);
+__device__ float3 grad_tsdf(volume<sdf32f_t> vol, float3 p);
+
 
 template <typename T>
 void volume<T>::allocate(int3 dimension, allocator alloc)
