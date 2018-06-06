@@ -24,9 +24,15 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     float dist = d - q.z;
     if (dist <= -mu) return;
 
+    float sigma_r = 0.6f;
+    float max_rad_dist = sqrtf(K.width * K.width * 0.25f + K.height * K.height * 0.25f);
+    float inv_r_sigma2 = -1.0 / (2.0f * sigma_r * sigma_r);
+    float2 uv = {(float)(u - K.cx), (float)(v - K.cy)};
+    float rad_dist = length(uv) / max_rad_dist;
+
     int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
     float ftt = fminf(1.0f, dist / mu);
-    float wtt = 1.0f;
+    float wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
     float ft  = vol.data[i].tsdf;
     float wt  = vol.data[i].weight;
     vol.data[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);

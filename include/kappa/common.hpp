@@ -5,11 +5,14 @@
 #include <Eigen/LU>
 
 
-enum allocator {
-    ALLOCATOR_HOST,
-    ALLOCATOR_DEVICE,
-    ALLOCATOR_MAPPED
+enum {
+    DEVICE_CPU,
+    DEVICE_CUDA,
+    DEVICE_CUDA_MAPPED,
 };
+
+
+struct rgb8_t { uint8_t r, g, b; };
 
 
 struct JtJse3 {

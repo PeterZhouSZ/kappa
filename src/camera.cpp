@@ -41,13 +41,13 @@ bool camera::read(image<uint16_t>* dm, image<rgb8_t>* cm)
     if (dm) {
         VideoFrameRef frame;
         status = depth.readFrame(&frame);
-        dm->resize(frame.getWidth(), frame.getHeight(), ALLOCATOR_MAPPED);
+        dm->resize(frame.getWidth(), frame.getHeight(), DEVICE_CUDA_MAPPED);
         memcpy(dm->data, frame.getData(), frame.getDataSize());
     }
     if (cm) {
         VideoFrameRef frame;
         status = color.readFrame(&frame);
-        cm->resize(frame.getWidth(), frame.getHeight(), ALLOCATOR_MAPPED);
+        cm->resize(frame.getWidth(), frame.getHeight(), DEVICE_CUDA_MAPPED);
         memcpy(cm->data, frame.getData(), frame.getDataSize());
     }
     return status == STATUS_OK;

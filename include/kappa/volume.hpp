@@ -6,7 +6,8 @@
 
 struct sdf32f_t {
     float tsdf;
-    uint8_t weight;
+    float weight;
+    rgb8_t color;
 };
 
 
@@ -15,8 +16,8 @@ struct volume {
     volume() = default;
     ~volume() = default;
 
-    void resize(int3 dimension, allocator alloc = ALLOCATOR_DEVICE);
-    void allocate(int3 dimension, allocator alloc = ALLOCATOR_DEVICE);
+    void resize(int3 dimension, int device = DEVICE_CUDA);
+    void allocate(int3 dimension, int device = DEVICE_CUDA);
     void deallocate();
 
     volume<T> gpu() const;
@@ -26,7 +27,7 @@ struct volume {
     int3 dimension = {0, 0, 0};
     float3 offset = {0.0f, 0.0f, 0.0f};
     float voxel_size = 0.0f;
-    allocator alloc;
+    int device;
 };
 
 __device__ float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z);
@@ -36,18 +37,18 @@ __device__ float3 grad_tsdf(volume<sdf32f_t> vol, float3 p);
 
 
 template <typename T>
-void volume<T>::allocate(int3 dimension, allocator alloc)
+void volume<T>::allocate(int3 dimension, int device)
 {
     this->dimension = dimension;
-    this->alloc = alloc;
+    this->device = device;
     size_t size = dimension.x * dimension.y * dimension.z * sizeof(T);
-    switch (alloc) {
-        case ALLOCATOR_HOST:
+    switch (device) {
+        case DEVICE_CPU:
             break;
-        case ALLOCATOR_DEVICE:
+        case DEVICE_CUDA:
             cudaMalloc((void**)&data, size);
             cudaMemset(data, 0, size);
-        case ALLOCATOR_MAPPED:
+        case DEVICE_CUDA_MAPPED:
             break;
     }
 }
@@ -56,13 +57,13 @@ void volume<T>::allocate(int3 dimension, allocator alloc)
 template <typename T>
 void volume<T>::deallocate()
 {
-    switch (this->alloc) {
-        case ALLOCATOR_HOST:
+    switch (this->device) {
+        case DEVICE_CPU:
             break;
-        case ALLOCATOR_DEVICE:
+        case DEVICE_CUDA:
             cudaFree(this->data);
             break;
-        case ALLOCATOR_MAPPED:
+        case DEVICE_CUDA_MAPPED:
             break;
     };
     data = NULL;
@@ -77,14 +78,14 @@ volume<T> volume<T>::gpu() const
     vol.dimension = this->dimension;
     vol.offset = this->offset;
     vol.voxel_size = this->voxel_size;
-    vol.alloc = ALLOCATOR_DEVICE;
-    switch (this->alloc) {
-        case ALLOCATOR_HOST:
+    vol.device = DEVICE_CUDA;
+    switch (this->device) {
+        case DEVICE_CPU:
             break;
-        case ALLOCATOR_DEVICE:
+        case DEVICE_CUDA:
             vol.data = this->data;
             break;
-        case ALLOCATOR_MAPPED:
+        case DEVICE_CUDA_MAPPED:
             break;
     }
     return vol;

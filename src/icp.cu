@@ -166,8 +166,8 @@ mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, i
     image<JtJse3> JTJ, Axb;
     unsigned int reduce_size = 8;
     unsigned int reduce_threads = 256;
-    JTJ.resize(K.width, K.height, ALLOCATOR_DEVICE);
-    Axb.resize(reduce_size, 1, ALLOCATOR_MAPPED);
+    JTJ.resize(K.width, K.height, DEVICE_CUDA);
+    Axb.resize(reduce_size, 1, DEVICE_CUDA_MAPPED);
 
     float last_error = FLT_MAX;
     for (int i = 0; i < num_iterations; ++i) {

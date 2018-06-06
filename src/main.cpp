@@ -21,46 +21,47 @@ float far = 4.0f;
 float mu = 0.1f;
 
 image<rgb8_t>   im;
-image<uint16_t> rm;
+image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8_t>   cm;
-image<float>    dmaps[num_levels];
-image<float3>   vmaps[num_levels];
-image<float3>   nmaps[num_levels];
-image<float3>   rvmaps[num_levels];
-image<float3>   rnmaps[num_levels];
+image<float>    dm0[num_levels];
+image<float3>   vm0[num_levels];
+image<float3>   nm0[num_levels];
+image<float3>   vm1[num_levels];
+image<float3>   nm1[num_levels];
 
 volume<sdf32f_t> vol;
-camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
-mat4x4 pose;
+camera cam;
+// camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
+mat4x4 P;
 
 
 static void preallocate()
 {
-    im.resize(cam.K.width, cam.K.height, ALLOCATOR_MAPPED);
-    dm.resize(cam.K.width, cam.K.height, ALLOCATOR_DEVICE);
+    im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
+    dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     for (int level = 0; level < num_levels; ++level) {
         int width = cam.K.width >> level;
         int height = cam.K.height >> level;
-        dmaps[level].resize(width, height, ALLOCATOR_DEVICE);
-        vmaps[level].resize(width, height, ALLOCATOR_DEVICE);
-        nmaps[level].resize(width, height, ALLOCATOR_DEVICE);
-        rvmaps[level].resize(width, height, ALLOCATOR_DEVICE);
-        rnmaps[level].resize(width, height, ALLOCATOR_DEVICE);
+        dm0[level].resize(width, height, DEVICE_CUDA);
+        vm0[level].resize(width, height, DEVICE_CUDA);
+        nm0[level].resize(width, height, DEVICE_CUDA);
+        vm1[level].resize(width, height, DEVICE_CUDA);
+        nm1[level].resize(width, height, DEVICE_CUDA);
     }
 }
 
 static void preprocess()
 {
-    compute_depth_map(&rm, &dm, cam.K, cutoff);
-    depth_bilateral(&dm, &dmaps[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
-    compute_vertex_map(&dmaps[0], &vmaps[0], cam.K);
-    compute_normal_map(&vmaps[0], &nmaps[0], cam.K);
+    compute_depth_map(&rdm, &dm, cam.K, cutoff);
+    depth_bilateral(&dm, &dm0[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
+    compute_vertex_map(&dm0[0], &vm0[0], cam.K);
+    compute_normal_map(&vm0[0], &nm0[0], cam.K);
 }
 
 static void track()
 {
-    pose = icp_p2p_se3(&vmaps[0], &nmaps[0], &rvmaps[0], &rnmaps[0], cam.K, pose, icp_num_iterations, dist_threshold, angle_threshold);
+    P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P, icp_num_iterations, dist_threshold, angle_threshold);
 }
 
 
@@ -87,7 +88,7 @@ int main(int argc, char** argv)
     int3 dimension = {512, 512, 512};
     vol.voxel_size = 0.008f;
     vol.offset = {-2.0f, -2.0f, 0.0f};
-    vol.allocate(dimension, ALLOCATOR_DEVICE);
+    vol.allocate(dimension, DEVICE_CUDA);
     reset_volume(&vol);
 
     preallocate();
@@ -103,12 +104,12 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        cam.read(&rm, &cm);
+        cam.read(&rdm, &cm);
         preprocess();
         if (frame > 0) track();
-        integrate_volume(&vol, &dm, cam.K, pose.inverse(), mu, max_weight);
-        raycast_volume(&vol, &rvmaps[0], &rnmaps[0], cam.K, pose, mu, near, far);
-        render_phong_light(&im, &rvmaps[0], &rnmaps[0], cam.K);
+        integrate_volume(&vol, &dm, cam.K, P.inverse(), mu, max_weight);
+        raycast_volume(&vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
+        render_phong_light(&im, &vm1[0], &nm1[0], cam.K);
         frame++;
 
         glPixelZoom(1, -1);

@@ -99,7 +99,7 @@ void reset_volume_kernel(volume<sdf32f_t> vol)
     if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
     int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
     vol.data[i].tsdf = 1.0f;
-    vol.data[0].weight = 0;
+    vol.data[i].weight = 0.0f;
 }
 
 
