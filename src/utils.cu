@@ -1,4 +1,4 @@
-#include <kappa/pipeline.hpp>
+#include <kappa/core.hpp>
 
 
 __global__

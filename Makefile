@@ -1,4 +1,4 @@
-TARGET = bin/demo
+BINS = bin/kinfu bin/surfel
 CXX = g++
 NVCC = nvcc
 
@@ -12,9 +12,13 @@ LDLIBS = -lpng -lm -lglfw -lGL -lcudart -lOpenNI2
 SOURCES := $(shell find src -name *.cpp -or -name *.cu)
 OBJECTS := $(SOURCES:%=bin/%.o)
 
-all: $(TARGET)
+all: $(BINS)
 
-$(TARGET): $(OBJECTS)
+bin/kinfu: apps/kinfu/main.cpp $(OBJECTS)
+	mkdir -p $(dir $@)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
+
+bin/surfel: apps/surfel/main.cpp $(OBJECTS)
 	mkdir -p $(dir $@)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(LDFLAGS) $(LDLIBS)
 

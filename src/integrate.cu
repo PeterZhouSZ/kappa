@@ -1,4 +1,5 @@
-#include <kappa/pipeline.hpp>
+#include <kappa/core.hpp>
+#define INVALID_SURFEL 0xffffffff
 
 
 __global__
@@ -40,12 +41,43 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
 }
 
 
-void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float max_weight)
+__global__
+void match_surfel_kernel(image<uint32_t> im, image<uint32_t> mm, intrinsics K, mat4x4 T)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
+
+    int i = u + v * K.width;
+    mm.data[i] = (im.data[i] == 0);
+}
+
+
+void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float maxw)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
     grid_size.x = divup(vol->dimension.x, block_size.x);
     grid_size.y = divup(vol->dimension.y, block_size.y);
     grid_size.z = divup(vol->dimension.z, block_size.z);
-    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T, mu, max_weight);
+    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T, mu, maxw);
+}
+
+
+void integrate_cloud(const cloud<surfel32f_t>* pc, image<float>* dm, image<uint32_t>* im, intrinsics K, mat4x4 T, float mu, float maxw)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+
+    image<uint32_t> mm, sm;
+    mm.allocate(K.width, K.height, DEVICE_CUDA);
+    sm.allocate(K.width, K.height, DEVICE_CUDA);
+
+    match_surfel_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), K, T);
+    sum_scan_cuda(mm.data, sm.data, K.width * K.height);
+
+    sm.deallocate();
+    mm.deallocate();
 }

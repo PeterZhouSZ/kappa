@@ -1,7 +1,7 @@
 #pragma once
-#include <vector>
 #include "camera.hpp"
 #include "common.hpp"
+#include "cloud.hpp"
 #include "math.hpp"
 #include "volume.hpp"
 
@@ -12,8 +12,11 @@ void compute_normal_map(const image<float3>* vm, image<float3>* nm, intrinsics K
 void depth_bilateral(const image<float>* dm0, image<float>* dm1, intrinsics K, float d_sigma, float r_sigma);
 
 void reset_volume(volume<sdf32f_t>* vol);
-void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float max_weight);
+void integrate_volume(const volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float maxw);
 void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float mu, float near, float far);
+
+void reset_cloud(cloud<surfel32f_t>* pc);
+void integrate_cloud(const cloud<surfel32f_t>* pc, image<float>* dm, image<uint32_t>* im, intrinsics K, mat4x4 T, float mu, float maxw);
 
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);

@@ -21,7 +21,6 @@ struct volume {
     void deallocate();
 
     volume<T> gpu() const;
-    volume<T> cpu() const;
 
     T* data = NULL;
     int3 dimension = {0, 0, 0};

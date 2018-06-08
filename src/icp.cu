@@ -1,4 +1,4 @@
-#include <kappa/pipeline.hpp>
+#include <kappa/core.hpp>
 #include <float.h>
 #include <Eigen/SVD>
 

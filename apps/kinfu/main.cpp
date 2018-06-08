@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <GLFW/glfw3.h>
-#include <kappa/pipeline.hpp>
+#include <kappa/core.hpp>
 
 
 constexpr int num_levels = 3;
@@ -31,8 +31,7 @@ image<float3>   vm1[num_levels];
 image<float3>   nm1[num_levels];
 
 volume<sdf32f_t> vol;
-camera cam;
-// camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
+camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
 
