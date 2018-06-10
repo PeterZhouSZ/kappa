@@ -71,13 +71,11 @@ void integrate_cloud(const cloud<surfel32f_t>* pc, image<float>* dm, image<uint3
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
 
-    image<uint32_t> mm, sm;
+    image<uint32_t> mm;
     mm.allocate(K.width, K.height, DEVICE_CUDA);
-    sm.allocate(K.width, K.height, DEVICE_CUDA);
 
     match_surfel_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), K, T);
-    sum_scan_cuda(mm.data, sm.data, K.width * K.height);
+    sum_scan_cuda(mm.data, mm.data, K.width * K.height);
 
-    sm.deallocate();
     mm.deallocate();
 }

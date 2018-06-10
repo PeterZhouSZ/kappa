@@ -109,6 +109,7 @@ int main(int argc, char** argv)
         frame++;
 
         glfwSwapBuffers(win);
+        if (frame == 1) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 
     return 0;
