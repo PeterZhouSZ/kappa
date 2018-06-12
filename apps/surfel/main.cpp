@@ -24,7 +24,7 @@ image<rgb8_t>   rm;
 image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8_t>   cm;
-image<uint32_t> im;
+image<uint4>    im;
 image<float>    dm0[num_levels];
 image<float3>   vm0[num_levels];
 image<float3>   nm0[num_levels];
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
     cam.start();
 
     int size = 0x1000000;
-    pc.allocate(size, DEVICE_CUDA);
+    pc.allocate(size, DEVICE_CUDA_MAPPED);
 
     preallocate();
 
@@ -105,7 +105,7 @@ int main(int argc, char** argv)
 
         cam.read(&rdm, &cm);
         preprocess();
-        integrate_cloud(&pc, &dm, &im, cam.K, P, mu, max_weight);
+        integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
         frame++;
 
         glfwSwapBuffers(win);

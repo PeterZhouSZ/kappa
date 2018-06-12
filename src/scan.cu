@@ -50,7 +50,17 @@ void prescan_blelloch_kernel(uint32_t* a, uint32_t* sum, uint32_t* bsum, int n)
 }
 
 
-void sum_scan_cuda(uint32_t* a, uint32_t* sum, int n)
+__global__
+void prescan_add_block_kernel(uint32_t* a, uint32_t* sum, uint32_t* bsum, int n)
+{
+    int i = 2 * blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t v = bsum[blockIdx.x];
+    sum[i] += v;
+    sum[i + blockDim.x] += v;
+}
+
+
+uint32_t sum_scan_cuda(uint32_t* a, uint32_t* sum, int n)
 {
     int block_size = 512;
     int elems_per_block = 2 * block_size;
@@ -63,6 +73,11 @@ void sum_scan_cuda(uint32_t* a, uint32_t* sum, int n)
     prescan_blelloch_kernel<<<grid_size, block_size, sizeof(uint32_t) * elems_per_block>>>(a, sum, bsum, n);
     if (grid_size <= elems_per_block)
         prescan_blelloch_kernel<<<1, block_size, sizeof(uint32_t) * elems_per_block>>>(bsum, bsum, NULL, grid_size);
+    prescan_add_block_kernel<<<grid_size, block_size>>>(a, sum, bsum, n);
 
     cudaFree(bsum);
+
+    uint32_t res;
+    cudaMemcpy(&res, &sum[n - 1], sizeof(uint32_t), cudaMemcpyDeviceToHost);
+    return res;
 }

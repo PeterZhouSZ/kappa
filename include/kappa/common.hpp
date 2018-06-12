@@ -12,7 +12,7 @@ enum {
 };
 
 
-void sum_scan_cuda(uint32_t* a, uint32_t* sum, int n);
+uint32_t sum_scan_cuda(uint32_t* a, uint32_t* sum, int n);
 
 
 struct rgb8_t { uint8_t r, g, b; };
