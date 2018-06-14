@@ -1,5 +1,4 @@
 #include <kappa/core.hpp>
-#define INVALID_SURFEL 0xffffffff
 
 
 __global__
@@ -67,7 +66,7 @@ void update_index_kernel(image<uint4> im, image<uint32_t> mm, image<uint32_t> sm
 
 
 __global__
-void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float3> nm, image<uint4> im, intrinsics K, mat4x4 T)
+void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float4> nm, image<uint4> im, intrinsics K, mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -77,15 +76,19 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float
     int k = im.data[i].x;
     if (vm.data[i].z == 0.0f) return;
 
+    float3 normal = (float3){nm.data[i].x, nm.data[i].y, nm.data[i].z};
     float3 vt = pc.data[k].pos;
     float3 nt = pc.data[k].normal;
+    float  rt = pc.data[k].radius;
     float  wt = pc.data[k].weight;
     float3 vtt = T * vm.data[i];
-    float3 ntt = rotate(T, nm.data[i]);
+    float3 ntt = rotate(T, normal);
+    float  rtt = nm.data[i].w;
     float  wtt = 1.0f;
 
     pc.data[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
     pc.data[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
+    pc.data[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
     pc.data[k].weight = wt + wtt;
 }
 
@@ -101,7 +104,7 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
 }
 
 
-void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float3>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
+void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;

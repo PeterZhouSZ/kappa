@@ -91,6 +91,40 @@ void compute_normal_kernel(image<float3> vm, image<float3> nm, intrinsics K)
 
 
 __global__
+void compute_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsics K)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u <= 0 || u >= K.width - 1 || v <= 0 || v >= K.height - 1) return;
+
+    int i = u + v * K.width;
+    float3 v00 = vm.data[(u - 1) + v * K.width];
+    float3 v10 = vm.data[(u + 1) + v * K.width];
+    float3 v01 = vm.data[u + (v - 1) * K.width];
+    float3 v11 = vm.data[u + (v + 1) * K.width];
+
+    float3 normal = {0.0f, 0.0f, 0.0f};
+    if (v00.z != 0 && v01.z != 0 && v10.z != 0 && v11.z != 0) {
+        float3 dx = v00 - v10;
+        float3 dy = v01 - v11;
+        normal = normalize(cross(dy, dx));
+    }
+
+    float r = 0.0f;
+    if (length(normal) > 0.0f) {
+        float d = vm.data[i].z;
+        float f = 0.5f * (K.fx + K.fy);
+        r = sqrtf(2.0f) * d / f;
+    }
+
+    nm.data[i].x = normal.x;
+    nm.data[i].y = normal.y;
+    nm.data[i].z = normal.z;
+    nm.data[i].w = r;
+}
+
+
+__global__
 void reset_volume_kernel(volume<sdf32f_t> vol)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
@@ -140,6 +174,16 @@ void compute_normal_map(const image<float3>* vm, image<float3>* nm, intrinsics K
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     compute_normal_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
+}
+
+
+void compute_normal_radius_map(const image<float3>* vm, image<float4>* nm, intrinsics K)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width, block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+    compute_normal_radius_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
 }
 
 

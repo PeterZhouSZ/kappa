@@ -5,6 +5,7 @@
 struct surfel32f_t {
     float3 pos;
     float3 normal;
+    float radius;
     float weight;
 };
 
