@@ -106,7 +106,7 @@ int main(int argc, char** argv)
         cam.read(&rdm, &cm);
         preprocess();
         if (frame > 0) track();
-        integrate_volume(&vol, &dm, cam.K, P.inverse(), mu, max_weight);
+        integrate_volume(&vol, &dm, cam.K, P, mu, max_weight);
         raycast_volume(&vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
         render_phong_light(&im, &vm1[0], &nm1[0], cam.K);
         frame++;

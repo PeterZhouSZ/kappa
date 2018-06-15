@@ -171,7 +171,9 @@ mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, i
 
     float last_error = FLT_MAX;
     for (int i = 0; i < num_iterations; ++i) {
-        icp_p2p_se3_kernel<<<grid_size, block_size>>>(JTJ.gpu(), vm0->gpu(), nm0->gpu(), vm1->gpu(), nm1->gpu(), K, T, dist_threshold, angle_threshold);
+        icp_p2p_se3_kernel<<<grid_size, block_size>>>(
+            JTJ.gpu(), vm0->gpu(), nm0->gpu(), vm1->gpu(), nm1->gpu(),
+            K, T, dist_threshold, angle_threshold);
         se3_reduce_kernel<<<reduce_size, reduce_threads, reduce_threads * sizeof(JtJse3)>>>(JTJ.gpu(), Axb.gpu());
         cudaDeviceSynchronize();
 

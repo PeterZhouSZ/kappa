@@ -100,7 +100,7 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
     grid_size.x = divup(vol->dimension.x, block_size.x);
     grid_size.y = divup(vol->dimension.y, block_size.y);
     grid_size.z = divup(vol->dimension.z, block_size.z);
-    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T, mu, maxw);
+    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T.inverse(), mu, maxw);
 }
 
 

@@ -7,6 +7,8 @@ camera::camera(const char* uri)
 {
     status = OpenNI::initialize();
     status = device.open(uri);
+    openni::PlaybackControl* control = device.getPlaybackControl();
+    if (control) control->setSpeed(-1);
     status = depth.create(device, SENSOR_DEPTH);
     status = color.create(device, SENSOR_COLOR);
     if (depth.isPropertySupported(openni::STREAM_PROPERTY_MIRRORING))
