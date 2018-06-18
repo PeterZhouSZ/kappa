@@ -13,7 +13,7 @@ struct image {
     void resize(int width, int height, int device = DEVICE_CPU);
     void allocate(int width, int height, int device = DEVICE_CPU);
     void deallocate();
-    void clear();
+    void clear(uint8_t c = 0x00);
 
     image<T> gpu() const;
 
@@ -75,16 +75,16 @@ void image<T>::deallocate()
 
 
 template <typename T>
-void image<T>::clear()
+void image<T>::clear(uint8_t c)
 {
     size_t size = width * height * sizeof(T);
     switch (this->device) {
         case DEVICE_CPU:
-            memset(this->data, 0, size);
+            memset(this->data, c, size);
             break;
         case DEVICE_CUDA:
         case DEVICE_CUDA_MAPPED:
-            cudaMemset(this->data, 0, size);
+            cudaMemset(this->data, c, size);
             break;
     }
 }

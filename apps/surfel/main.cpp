@@ -105,6 +105,7 @@ int main(int argc, char** argv)
         cam.read(&rdm, &cm);
         preprocess();
         integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
+        raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
         frame++;
 
         glfwSwapBuffers(win);

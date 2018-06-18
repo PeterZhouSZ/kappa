@@ -9,7 +9,7 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     int z = threadIdx.z + blockIdx.z * blockDim.z;
     if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
 
-    float3 p ={(float)x, (float)y, (float)z};
+    float3 p = {(float)x, (float)y, (float)z};
     p = vol.offset + p * vol.voxel_size;
     float3 q = T * p;
     if (q.z <= 0.001f) return;
