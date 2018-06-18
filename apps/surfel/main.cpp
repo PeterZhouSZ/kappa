@@ -29,7 +29,7 @@ image<float>    dm0[num_levels];
 image<float3>   vm0[num_levels];
 image<float3>   vm1[num_levels];
 image<float4>   nm0[num_levels];
-image<float4>   nm1[num_levels];
+image<float3>   nm1[num_levels];
 
 cloud<surfel32f_t> pc;
 camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
@@ -102,14 +102,19 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        cam.read(&rdm, &cm);
-        preprocess();
-        integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
-        raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
-        frame++;
+        if (frame == 0) {
+            cam.read(&rdm, &cm);
+            preprocess();
+            integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
+            raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
+            render_phong_light(&rm, &vm1[0], &nm1[0], cam.K);
+            frame++;
+        }
 
+        glPixelZoom(1, -1);
+        glRasterPos2i(0, 0);
+        glDrawPixels(rm.width, rm.height, GL_RGB, GL_UNSIGNED_BYTE, rm.data);
         glfwSwapBuffers(win);
-        if (frame == 1) glfwSetWindowShouldClose(win, GL_TRUE);
     }
 
     return 0;
