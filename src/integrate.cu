@@ -118,7 +118,6 @@ void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* n
     match_surfel_kernel<<<grid_size, block_size>>>(vm->gpu(), im->gpu(), mm.gpu(), K, T);
     int sum = sum_scan_cuda(mm.data, sm.data, K.width * K.height);
     update_index_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), sm.gpu(), K, pc->size);
-
     integrate_cloud_kernel<<<grid_size, block_size>>>(pc->gpu(), vm->gpu(), nm->gpu(), im->gpu(), K, T);
     pc->size += sum;
 

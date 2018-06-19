@@ -91,7 +91,6 @@ int main(int argc, char** argv)
     reset_volume(&vol);
 
     preallocate();
-
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);

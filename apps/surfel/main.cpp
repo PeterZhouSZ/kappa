@@ -62,6 +62,7 @@ static void preprocess()
 
 static void track()
 {
+    P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P, icp_num_iterations, dist_threshold, angle_threshold);
 }
 
 
@@ -89,7 +90,6 @@ int main(int argc, char** argv)
     pc.allocate(size, DEVICE_CUDA_MAPPED);
 
     preallocate();
-
     im.clear();
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
@@ -102,14 +102,13 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        if (frame == 0) {
-            cam.read(&rdm, &cm);
-            preprocess();
-            integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
-            raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
-            render_phong_light(&rm, &vm1[0], &nm1[0], cam.K);
-            frame++;
-        }
+        cam.read(&rdm, &cm);
+        preprocess();
+        if (frame > 0) track();
+        integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
+        raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
+        render_phong_light(&rm, &vm1[0], &nm1[0], cam.K);
+        frame++;
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);

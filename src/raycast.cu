@@ -83,7 +83,6 @@ void raycast_index_kernel(cloud<surfel32f_t> pc, image<uint32_t> zbuf, image<uin
     int i = u + v * K.width;
     uint32_t z = q.z * ZBUFFER_SCALE;
     if (z > zbuf.data[i]) return;
-
     im.data[i].x = k + 1;
 }
 
@@ -122,6 +121,7 @@ void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4
     image<uint32_t> zbuf;
     zbuf.allocate(K.width, K.height, DEVICE_CUDA);
     zbuf.clear(0xff);
+    im->clear();
     {
         unsigned int block_size = 512;
         unsigned int grid_size = divup(pc->size, block_size);
