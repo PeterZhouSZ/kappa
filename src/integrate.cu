@@ -76,7 +76,7 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float
     int k = im.data[i].x;
     if (vm.data[i].z == 0.0f) return;
 
-    float3 normal = (float3){nm.data[i].x, nm.data[i].y, nm.data[i].z};
+    float3 normal = make_float3(nm.data[i]);
     float3 vt = pc.data[k].pos;
     float3 nt = pc.data[k].normal;
     float  rt = pc.data[k].radius;
@@ -106,21 +106,18 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
 
 void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
+    static image<uint32_t> mm, sm;
+    mm.resize(K.width, K.height, DEVICE_CUDA);
+    sm.resize(K.width, K.height, DEVICE_CUDA);
+
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-
-    image<uint32_t> mm, sm;
-    mm.allocate(K.width, K.height, DEVICE_CUDA);
-    sm.allocate(K.width, K.height, DEVICE_CUDA);
 
     match_surfel_kernel<<<grid_size, block_size>>>(vm->gpu(), im->gpu(), mm.gpu(), K, T);
     int sum = sum_scan_cuda(mm.data, sm.data, K.width * K.height);
     update_index_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), sm.gpu(), K, pc->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(pc->gpu(), vm->gpu(), nm->gpu(), im->gpu(), K, T);
     pc->size += sum;
-
-    sm.deallocate();
-    mm.deallocate();
 }

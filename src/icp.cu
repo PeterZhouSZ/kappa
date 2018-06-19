@@ -158,16 +158,16 @@ static mat4x4 solve_icp_p2p(JtJse3 J)
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, image<float4>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold)
 {
+    static unsigned int reduce_size = 8;
+    static unsigned int reduce_threads = 256;
+    static image<JtJse3> JTJ, Axb;
+    JTJ.resize(K.width, K.height, DEVICE_CUDA);
+    Axb.resize(reduce_size, 1, DEVICE_CUDA_MAPPED);
+
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-
-    image<JtJse3> JTJ, Axb;
-    unsigned int reduce_size = 8;
-    unsigned int reduce_threads = 256;
-    JTJ.resize(K.width, K.height, DEVICE_CUDA);
-    Axb.resize(reduce_size, 1, DEVICE_CUDA_MAPPED);
 
     float last_error = FLT_MAX;
     for (int i = 0; i < num_iterations; ++i) {
@@ -186,8 +186,5 @@ mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, i
         T = delta * T;
         last_error = error;
     }
-
-    JTJ.deallocate();
-    Axb.deallocate();
     return T;
 }

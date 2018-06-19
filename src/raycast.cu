@@ -118,7 +118,7 @@ void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4
 
 void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
-    image<uint32_t> zbuf;
+    static image<uint32_t> zbuf;
     zbuf.allocate(K.width, K.height, DEVICE_CUDA);
     zbuf.clear(0xff);
     im->clear();
@@ -135,5 +135,4 @@ void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(pc->gpu(), im->gpu(), vm->gpu(), nm->gpu(), K);
     }
-    zbuf.deallocate();
 }
