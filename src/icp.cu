@@ -4,7 +4,7 @@
 
 
 __global__
-void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float3> nm0, image<float3> vm1, image<float3> nm1,
+void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float4> nm0, image<float3> vm1, image<float4> nm1,
                         intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
@@ -16,11 +16,11 @@ void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float3> nm0,
     JTJ.data[i].weight = 0.0f;
 
     float3 p0 = T * vm0.data[i];
-    float3 n0 = rotate(T, nm0.data[i]);
+    float3 n0 = rotate(T, make_float3(nm0.data[i]));
     if (p0.z == 0.0f) return;
 
     float3 p1 = vm1.data[i];
-    float3 n1 = nm1.data[i];
+    float3 n1 = make_float3(nm1.data[i]);
     if (p1.z == 0.0f) return;
 
     float3 d = p1 - p0;
@@ -155,7 +155,7 @@ static mat4x4 solve_icp_p2p(JtJse3 J)
 }
 
 
-mat4x4 icp_p2p_se3(image<float3>* vm0, image<float3>* nm0, image<float3>* vm1, image<float3>* nm1,
+mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, image<float4>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold)
 {
     dim3 block_size(16, 16);

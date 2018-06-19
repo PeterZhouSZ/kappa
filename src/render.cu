@@ -2,7 +2,7 @@
 
 
 __global__
-void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float3> nm, intrinsics K)
+void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -12,7 +12,7 @@ void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float3>
     float3 light = {0.0f, 0.0f, 0.0f};
     float3 view = {0.0f, 0.0f, 0.0f};
     float3 p = vm.data[i];
-    float3 n = nm.data[i];
+    float3 n = make_float3(nm.data[i]);
     float ambient = 0.1f;
     float diffuse = 0.5f;
     float specular = 0.2f;
@@ -28,21 +28,21 @@ void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float3>
 
 
 __global__
-void render_normal_kernel(image<rgb8_t> im, image<float3> nm, intrinsics K)
+void render_normal_kernel(image<rgb8_t> im, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float3 n = nm.data[i];
+    float3 n = make_float3(nm.data[i]);
     im.data[i] = {(uint8_t)((0.3f + (-n.x + 1.0f) * 0.35f) * 255.0f),
                   (uint8_t)((0.3f + (-n.y + 1.0f) * 0.35f) * 255.0f),
                   (uint8_t)((0.3f + (-n.z + 1.0f) * 0.35f) * 255.0f)};
 }
 
 
-void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float3>* nm, intrinsics K)
+void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float4>* nm, intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
@@ -52,7 +52,7 @@ void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<
 }
 
 
-void render_normal(image<rgb8_t>* im, const image<float3>* nm, intrinsics K)
+void render_normal(image<rgb8_t>* im, const image<float4>* nm, intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;

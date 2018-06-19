@@ -3,7 +3,7 @@
 
 
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3> nm, intrinsics K, mat4x4 T, float mu, float near, float far)
+void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float4> nm, intrinsics K, mat4x4 T, float mu, float near, float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -37,11 +37,11 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float3>
 
     int i = u + v * K.width;
     vm.data[i] = {0.0f, 0.0f, 0.0f};
-    nm.data[i] = {0.0f, 0.0f, 0.0f};
+    nm.data[i] = {0.0f, 0.0f, 0.0f, 0.0f};
     if (z >= 0.0f) {
         p = origin + direction * z;
         vm.data[i] = p;
-        nm.data[i] = grad_tsdf(vol, p);
+        nm.data[i] = make_float4(grad_tsdf(vol, p));
     }
 }
 
@@ -89,7 +89,7 @@ void raycast_index_kernel(cloud<surfel32f_t> pc, image<uint32_t> zbuf, image<uin
 
 
 __global__
-void raycast_cloud_kernel(cloud<surfel32f_t> pc, image<uint4> im, image<float3> vm, image<float3> nm, intrinsics K)
+void raycast_cloud_kernel(cloud<surfel32f_t> pc, image<uint4> im, image<float3> vm, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -103,11 +103,11 @@ void raycast_cloud_kernel(cloud<surfel32f_t> pc, image<uint4> im, image<float3> 
     if (k == 0) return;
 
     vm.data[i] = pc.data[k - 1].pos;
-    nm.data[i] = pc.data[k - 1].normal;
+    nm.data[i] = make_float4(pc.data[k - 1].normal);
 }
 
 
-void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3>* nm, intrinsics K, mat4x4 T, float mu, float near, float far)
+void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4>* nm, intrinsics K, mat4x4 T, float mu, float near, float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
@@ -117,7 +117,7 @@ void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float3
 }
 
 
-void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float3>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
+void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
     image<uint32_t> zbuf;
     zbuf.allocate(K.width, K.height, DEVICE_CUDA);

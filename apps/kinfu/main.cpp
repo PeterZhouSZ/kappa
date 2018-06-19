@@ -26,9 +26,9 @@ image<float>    dm;
 image<rgb8_t>   cm;
 image<float>    dm0[num_levels];
 image<float3>   vm0[num_levels];
-image<float3>   nm0[num_levels];
 image<float3>   vm1[num_levels];
-image<float3>   nm1[num_levels];
+image<float4>   nm0[num_levels];
+image<float4>   nm1[num_levels];
 
 volume<sdf32f_t> vol;
 camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
@@ -52,10 +52,10 @@ static void preallocate()
 
 static void preprocess()
 {
-    compute_depth_map(&rdm, &dm, cam.K, cutoff);
+    raw_to_depth(&rdm, &dm, cam.K, cutoff);
     depth_bilateral(&dm, &dm0[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
-    compute_vertex_map(&dm0[0], &vm0[0], cam.K);
-    compute_normal_map(&vm0[0], &nm0[0], cam.K);
+    depth_to_vertex(&dm0[0], &vm0[0], cam.K);
+    vertex_to_normal(&vm0[0], &nm0[0], cam.K);
 }
 
 static void track()

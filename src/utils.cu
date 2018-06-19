@@ -39,7 +39,7 @@ void depth_bilateral_kernel(image<float> dm0, image<float> dm1, intrinsics K, fl
 
 
 __global__
-void compute_depth_kernel(image<uint16_t> rm, image<float> dm, intrinsics K, float cutoff)
+void raw_to_depth_kernel(image<uint16_t> rm, image<float> dm, intrinsics K, float cutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -53,7 +53,7 @@ void compute_depth_kernel(image<uint16_t> rm, image<float> dm, intrinsics K, flo
 
 
 __global__
-void compute_vertex_kernel(image<float> dm, image<float3> vm, intrinsics K)
+void depth_to_vertex_kernel(image<float> dm, image<float3> vm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -69,7 +69,7 @@ void compute_vertex_kernel(image<float> dm, image<float3> vm, intrinsics K)
 
 
 __global__
-void compute_normal_kernel(image<float3> vm, image<float3> nm, intrinsics K)
+void vertex_to_normal_kernel(image<float3> vm, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -86,12 +86,15 @@ void compute_normal_kernel(image<float3> vm, image<float3> nm, intrinsics K)
         float3 dy = v01 - v11;
         normal = normalize(cross(dy, dx));
     }
-    nm.data[u + v * K.width] = normal;
+    int i = u + v * K.width;
+    nm.data[i].x = normal.x;
+    nm.data[i].y = normal.y;
+    nm.data[i].z = normal.z;
 }
 
 
 __global__
-void compute_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsics K)
+void vertex_to_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -137,13 +140,13 @@ void reset_volume_kernel(volume<sdf32f_t> vol)
 }
 
 
-void compute_depth_map(const image<uint16_t>* rm, image<float>* dm, intrinsics K, float cutoff)
+void raw_to_depth(const image<uint16_t>* rm, image<float>* dm, intrinsics K, float cutoff)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    compute_depth_kernel<<<grid_size, block_size>>>(rm->gpu(), dm->gpu(), K, cutoff);
+    raw_to_depth_kernel<<<grid_size, block_size>>>(rm->gpu(), dm->gpu(), K, cutoff);
 }
 
 
@@ -157,33 +160,33 @@ void depth_bilateral(const image<float>* dm0, image<float>* dm1, intrinsics K, f
 }
 
 
-void compute_vertex_map(const image<float>* dm, image<float3>* vm, intrinsics K)
+void depth_to_vertex(const image<float>* dm, image<float3>* vm, intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    compute_vertex_kernel<<<grid_size, block_size>>>(dm->gpu(), vm->gpu(), K);
+    depth_to_vertex_kernel<<<grid_size, block_size>>>(dm->gpu(), vm->gpu(), K);
 }
 
 
-void compute_normal_map(const image<float3>* vm, image<float3>* nm, intrinsics K)
+void vertex_to_normal(const image<float3>* vm, image<float4>* nm, intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    compute_normal_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
+    vertex_to_normal_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
 }
 
 
-void compute_normal_radius_map(const image<float3>* vm, image<float4>* nm, intrinsics K)
+void vertex_to_normal_radius(const image<float3>* vm, image<float4>* nm, intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    compute_normal_radius_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
+    vertex_to_normal_radius_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
 }
 
 
