@@ -1,12 +1,12 @@
 BINS = bin/kinfu bin/surfel
-CXX = g++
-NVCC = nvcc
+CXX = /opt/cuda/bin/g++
+NVCC = /opt/cuda/bin/nvcc
 
-INCLUDES = -I/usr/local/cuda/include -I/usr/include/eigen3 -Iinclude
+INCLUDES = -I/opt/cuda/include -I/usr/include/eigen3 -Iinclude
 DEFINES =
 CXXFLAGS = -O2 -Wall -std=c++11 -ffast-math $(INCLUDES) $(DEFINES)
-NVCCFLAGS = -O2 -std=c++11 -arch=sm_35 -lineinfo $(INCLUDES) $(DEFINES)
-LDFLAGS = -L/usr/local/cuda/lib64
+NVCCFLAGS = -O2 -std=c++11 -arch=sm_35 -lineinfo --expt-relaxed-constexpr $(INCLUDES) $(DEFINES)
+LDFLAGS = -L/opt/cuda/lib64
 LDLIBS = -lpng -lm -lglfw -lGL -lcudart -lOpenNI2
 
 SOURCES := $(shell find src -name *.cpp -or -name *.cu)

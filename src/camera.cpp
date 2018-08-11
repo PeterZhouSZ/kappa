@@ -1,4 +1,5 @@
 #include <kappa/camera.hpp>
+#include <stdio.h>
 
 
 using namespace openni;
