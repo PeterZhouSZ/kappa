@@ -11,10 +11,6 @@
 * CUDA
 * OpenNI2
 
-## TODO
-
-- [ ] Metal support
-
 ## References
 
 1. Richard A. Newcombe, et al. "KinectFusion: Real-time Dense Surface Mapping and Tracking." ISMAR (2011).

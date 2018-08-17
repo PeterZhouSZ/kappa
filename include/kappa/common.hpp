@@ -9,7 +9,6 @@ enum {
     DEVICE_CPU,
     DEVICE_CUDA,
     DEVICE_CUDA_MAPPED,
-    DEVICE_METAL,
 };
 
 
