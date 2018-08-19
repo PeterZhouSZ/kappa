@@ -32,7 +32,7 @@ image<float4>   nm0[num_levels];
 image<float4>   nm1[num_levels];
 
 cloud<surfel32f_t> pc;
-camera cam{"/media/sutd/storage/scenenn/061/061.oni"};
+camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
 

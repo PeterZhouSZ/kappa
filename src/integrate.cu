@@ -76,15 +76,21 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float
     int k = im.data[i].x;
     if (vm.data[i].z == 0.0f) return;
 
+    float sigma_r = 0.6f;
+    float max_rad_dist = sqrtf(K.width * K.width * 0.25f + K.height * K.height * 0.25f);
+    float inv_r_sigma2 = -1.0 / (2.0f * sigma_r * sigma_r);
+    float2 uv = {(float)(u - K.cx), (float)(v - K.cy)};
+    float rad_dist = length(uv) / max_rad_dist;
+
     float3 normal = make_float3(nm.data[i]);
+    float3 vtt = T * vm.data[i];
+    float3 ntt = rotate(T, normal);
+    float  rtt = nm.data[i].w;
+    float  wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
     float3 vt = pc.data[k].pos;
     float3 nt = pc.data[k].normal;
     float  rt = pc.data[k].radius;
     float  wt = pc.data[k].weight;
-    float3 vtt = T * vm.data[i];
-    float3 ntt = rotate(T, normal);
-    float  rtt = nm.data[i].w;
-    float  wtt = 1.0f;
 
     pc.data[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
     pc.data[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
