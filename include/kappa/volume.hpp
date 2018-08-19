@@ -16,6 +16,12 @@ struct volume {
     volume() = default;
     ~volume() = default;
 
+    __host__ __device__
+    T& operator[](int i) { return data[i]; }
+
+    __host__ __device__
+    const T& operator[](int i) const { return data[i]; }
+
     void resize(int3 dimension, int device = DEVICE_CUDA);
     void allocate(int3 dimension, int device = DEVICE_CUDA);
     void deallocate();

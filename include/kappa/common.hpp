@@ -132,16 +132,3 @@ inline int divup(int a, int b)
 {
     return (a + b - 1) / b;
 }
-
-
-inline void print_mat4x4(FILE* fp, mat4x4 M)
-{
-    printf("%f %f %f %f\n"
-           "%f %f %f %f\n"
-           "%f %f %f %f\n"
-           "%f %f %f %f\n",
-           M.m00, M.m01, M.m02, M.m03,
-           M.m10, M.m11, M.m12, M.m13,
-           M.m20, M.m21, M.m22, M.m23,
-           M.m30, M.m31, M.m32, M.m33);
-}

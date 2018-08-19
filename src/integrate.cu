@@ -18,7 +18,7 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     int v = roundf((q.y / q.z) * K.fy + K.cy);
     if (u < 0 || u >= K.width || v < 0 || v >= K.height) return;
 
-    float d = dm.data[u + v * K.width];
+    float d = dm[u + v * K.width];
     if (d == 0.0f) return;
 
     float dist = d - q.z;
@@ -33,10 +33,10 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
     float ftt = fminf(1.0f, dist / mu);
     float wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
-    float ft  = vol.data[i].tsdf;
-    float wt  = vol.data[i].weight;
-    vol.data[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);
-    vol.data[i].weight = fminf(wt + wtt, max_weight);
+    float ft  = vol[i].tsdf;
+    float wt  = vol[i].weight;
+    vol[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);
+    vol[i].weight = fminf(wt + wtt, max_weight);
 }
 
 
@@ -48,9 +48,9 @@ void match_surfel_kernel(image<float3> vm, image<uint4> im, image<uint32_t> mm, 
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im.data[i].x;
-    mm.data[i] = 0;
-    if (vm.data[i].z > 0.0f && k == 0) mm.data[i] = 1;
+    int k = im[i].x;
+    mm[i] = 0;
+    if (vm[i].z > 0.0f && k == 0) mm[i] = 1;
 }
 
 
@@ -61,20 +61,20 @@ void update_index_kernel(image<uint4> im, image<uint32_t> mm, image<uint32_t> sm
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
     int i = u + v * K.width;
-    im.data[i].x = base + mm.data[i] * sm.data[i];
+    im[i].x = base + mm[i] * sm[i];
 }
 
 
 __global__
-void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float4> nm, image<uint4> im, intrinsics K, mat4x4 T)
+void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<float4> nm, image<uint4> im, intrinsics K, mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im.data[i].x;
-    if (vm.data[i].z == 0.0f) return;
+    int k = im[i].x;
+    if (vm[i].z == 0.0f) return;
 
     float sigma_r = 0.6f;
     float max_rad_dist = sqrtf(K.width * K.width * 0.25f + K.height * K.height * 0.25f);
@@ -82,20 +82,20 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pc, image<float3> vm, image<float
     float2 uv = {(float)(u - K.cx), (float)(v - K.cy)};
     float rad_dist = length(uv) / max_rad_dist;
 
-    float3 normal = make_float3(nm.data[i]);
-    float3 vtt = T * vm.data[i];
+    float3 normal = make_float3(nm[i]);
+    float3 vtt = T * vm[i];
     float3 ntt = rotate(T, normal);
-    float  rtt = nm.data[i].w;
+    float  rtt = nm[i].w;
     float  wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
-    float3 vt = pc.data[k].pos;
-    float3 nt = pc.data[k].normal;
-    float  rt = pc.data[k].radius;
-    float  wt = pc.data[k].weight;
+    float3 vt = pcd[k].pos;
+    float3 nt = pcd[k].normal;
+    float  rt = pcd[k].radius;
+    float  wt = pcd[k].weight;
 
-    pc.data[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
-    pc.data[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
-    pc.data[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
-    pc.data[k].weight = wt + wtt;
+    pcd[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
+    pcd[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
+    pcd[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
+    pcd[k].weight = wt + wtt;
 }
 
 
@@ -110,7 +110,7 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
 }
 
 
-void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
+void integrate_cloud(cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);
@@ -123,7 +123,7 @@ void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* n
 
     match_surfel_kernel<<<grid_size, block_size>>>(vm->gpu(), im->gpu(), mm.gpu(), K, T);
     int sum = sum_scan_cuda(mm.data, sm.data, K.width * K.height);
-    update_index_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), sm.gpu(), K, pc->size);
-    integrate_cloud_kernel<<<grid_size, block_size>>>(pc->gpu(), vm->gpu(), nm->gpu(), im->gpu(), K, T);
-    pc->size += sum;
+    update_index_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), sm.gpu(), K, pcd->size);
+    integrate_cloud_kernel<<<grid_size, block_size>>>(pcd->gpu(), vm->gpu(), nm->gpu(), im->gpu(), K, T);
+    pcd->size += sum;
 }

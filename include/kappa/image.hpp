@@ -10,6 +10,12 @@ struct image {
     image() = default;
     ~image() = default;
 
+    __host__ __device__
+    T& operator[](int i) { return data[i]; }
+
+    __host__ __device__
+    const T& operator[](int i) const { return data[i]; }
+
     void resize(int width, int height, int device = DEVICE_CPU);
     void allocate(int width, int height, int device = DEVICE_CPU);
     void deallocate();

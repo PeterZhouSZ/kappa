@@ -12,15 +12,15 @@ void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float4> nm0,
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    JTJ.data[i].error = 0.0f;
-    JTJ.data[i].weight = 0.0f;
+    JTJ[i].error = 0.0f;
+    JTJ[i].weight = 0.0f;
 
-    float3 p0 = T * vm0.data[i];
-    float3 n0 = rotate(T, make_float3(nm0.data[i]));
+    float3 p0 = T * vm0[i];
+    float3 n0 = rotate(T, make_float3(nm0[i]));
     if (p0.z == 0.0f) return;
 
-    float3 p1 = vm1.data[i];
-    float3 n1 = make_float3(nm1.data[i]);
+    float3 p1 = vm1[i];
+    float3 n1 = make_float3(nm1[i]);
     if (p1.z == 0.0f) return;
 
     float3 d = p1 - p0;
@@ -30,35 +30,35 @@ void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float4> nm0,
     float e = dot(d, n1);
     float3 Jt = n1;
     float3 JR = cross(p0, n1);
-    JTJ.data[i].weight  = 1.0f;
-    JTJ.data[i].error   = e * e;
-    JTJ.data[i].Jte[0]  = e * Jt.x;
-    JTJ.data[i].Jte[1]  = e * Jt.y;
-    JTJ.data[i].Jte[2]  = e * Jt.z;
-    JTJ.data[i].Jte[3]  = e * JR.x;
-    JTJ.data[i].Jte[4]  = e * JR.y;
-    JTJ.data[i].Jte[5]  = e * JR.z;
-    JTJ.data[i].JtJ[0]  = Jt.x * Jt.x;
-    JTJ.data[i].JtJ[1]  = Jt.x * Jt.y;
-    JTJ.data[i].JtJ[2]  = Jt.x * Jt.z;
-    JTJ.data[i].JtJ[3]  = Jt.x * JR.x;
-    JTJ.data[i].JtJ[4]  = Jt.x * JR.y;
-    JTJ.data[i].JtJ[5]  = Jt.x * JR.z;
-    JTJ.data[i].JtJ[6]  = Jt.y * Jt.y;
-    JTJ.data[i].JtJ[7]  = Jt.y * Jt.z;
-    JTJ.data[i].JtJ[8]  = Jt.y * JR.x;
-    JTJ.data[i].JtJ[9]  = Jt.y * JR.y;
-    JTJ.data[i].JtJ[10] = Jt.y * JR.z;
-    JTJ.data[i].JtJ[11] = Jt.z * Jt.z;
-    JTJ.data[i].JtJ[12] = Jt.z * JR.x;
-    JTJ.data[i].JtJ[13] = Jt.z * JR.y;
-    JTJ.data[i].JtJ[14] = Jt.z * JR.z;
-    JTJ.data[i].JtJ[15] = JR.x * JR.x;
-    JTJ.data[i].JtJ[16] = JR.x * JR.y;
-    JTJ.data[i].JtJ[17] = JR.x * JR.z;
-    JTJ.data[i].JtJ[18] = JR.y * JR.y;
-    JTJ.data[i].JtJ[19] = JR.y * JR.z;
-    JTJ.data[i].JtJ[20] = JR.z * JR.z;
+    JTJ[i].weight  = 1.0f;
+    JTJ[i].error   = e * e;
+    JTJ[i].Jte[0]  = e * Jt.x;
+    JTJ[i].Jte[1]  = e * Jt.y;
+    JTJ[i].Jte[2]  = e * Jt.z;
+    JTJ[i].Jte[3]  = e * JR.x;
+    JTJ[i].Jte[4]  = e * JR.y;
+    JTJ[i].Jte[5]  = e * JR.z;
+    JTJ[i].JtJ[0]  = Jt.x * Jt.x;
+    JTJ[i].JtJ[1]  = Jt.x * Jt.y;
+    JTJ[i].JtJ[2]  = Jt.x * Jt.z;
+    JTJ[i].JtJ[3]  = Jt.x * JR.x;
+    JTJ[i].JtJ[4]  = Jt.x * JR.y;
+    JTJ[i].JtJ[5]  = Jt.x * JR.z;
+    JTJ[i].JtJ[6]  = Jt.y * Jt.y;
+    JTJ[i].JtJ[7]  = Jt.y * Jt.z;
+    JTJ[i].JtJ[8]  = Jt.y * JR.x;
+    JTJ[i].JtJ[9]  = Jt.y * JR.y;
+    JTJ[i].JtJ[10] = Jt.y * JR.z;
+    JTJ[i].JtJ[11] = Jt.z * Jt.z;
+    JTJ[i].JtJ[12] = Jt.z * JR.x;
+    JTJ[i].JtJ[13] = Jt.z * JR.y;
+    JTJ[i].JtJ[14] = Jt.z * JR.z;
+    JTJ[i].JtJ[15] = JR.x * JR.x;
+    JTJ[i].JtJ[16] = JR.x * JR.y;
+    JTJ[i].JtJ[17] = JR.x * JR.z;
+    JTJ[i].JtJ[18] = JR.y * JR.y;
+    JTJ[i].JtJ[19] = JR.y * JR.z;
+    JTJ[i].JtJ[20] = JR.z * JR.z;
 }
 
 
@@ -72,8 +72,8 @@ void se3_reduce_kernel(image<JtJse3> JTJ, image<JtJse3> Axb)
     for (int v = blockIdx.x; v < JTJ.height; v += gridDim.x) {
         for (int u = threadIdx.x; u < JTJ.width; u += blockDim.x) {
             int i = u + v * JTJ.width;
-            if (JTJ.data[i].weight == 0) continue;
-            r += JTJ.data[i];
+            if (JTJ[i].weight == 0) continue;
+            r += JTJ[i];
         }
     }
     data[tid] = r;
@@ -82,7 +82,7 @@ void se3_reduce_kernel(image<JtJse3> JTJ, image<JtJse3> Axb)
     if (tid > 0) return;
     for (int i = 1; i < blockDim.x; ++i)
         data[0] += data[i];
-    Axb.data[blockIdx.x] = data[0];
+    Axb[blockIdx.x] = data[0];
 }
 
 
@@ -99,8 +99,8 @@ static Eigen::Matrix3f rodrigues(float3 w)
 
         Eigen::Matrix3f G;
         G << 0.0f, -w.z,  w.y,
-              w.z, 0.0f, -w.x,
-             -w.y,  w.x, 0.0f;
+            w.z, 0.0f, -w.x,
+            -w.y,  w.x, 0.0f;
         R = I + inv_theta * s * G
             + (1 - c) * inv_theta * inv_theta * G * G;
     }
@@ -178,11 +178,11 @@ mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, i
         cudaDeviceSynchronize();
 
         for (int i = 1; i < reduce_size; ++i)
-            Axb.data[0] += Axb.data[i];
-        float error = Axb.data[0].error / Axb.data[0].weight;
+            Axb[0] += Axb[i];
+        float error = Axb[0].error / Axb[0].weight;
         if (isnan(error) || error > last_error) break;
 
-        mat4x4 delta = solve_icp_p2p(Axb.data[0]);
+        mat4x4 delta = solve_icp_p2p(Axb[0]);
         T = delta * T;
         last_error = error;
     }

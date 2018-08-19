@@ -9,8 +9,8 @@ void depth_bilateral_kernel(image<float> dm0, image<float> dm1, intrinsics K, fl
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    dm1.data[i] = 0.0f;
-    float p = dm0.data[i];
+    dm1[i] = 0.0f;
+    float p = dm0[i];
     if (p == 0.0f) return;
 
     float sum = 0.0f;
@@ -25,7 +25,7 @@ void depth_bilateral_kernel(image<float> dm0, image<float> dm1, intrinsics K, fl
             int y = v + dy;
             if (x < 0 || x >= K.width || y < 0 || y >= K.height) continue;
 
-            float q = dm0.data[x + y * K.width];
+            float q = dm0[x + y * K.width];
             if (q == 0.0f) continue;
 
             float w_r = __expf(dx * dx * inv_r_sigma2) * __expf(dy * dy * inv_r_sigma2);
@@ -34,7 +34,7 @@ void depth_bilateral_kernel(image<float> dm0, image<float> dm1, intrinsics K, fl
             count += w_r * w_d;
         }
     }
-    dm1.data[i] = (sum / count);
+    dm1[i] = (sum / count);
 }
 
 
@@ -46,9 +46,9 @@ void raw_to_depth_kernel(image<uint16_t> rm, image<float> dm, intrinsics K, floa
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float d = rm.data[i] * 0.001f;
+    float d = rm[i] * 0.001f;
     if (d > cutoff) d = 0.0f;
-    dm.data[i] = d;
+    dm[i] = d;
 }
 
 
@@ -60,11 +60,11 @@ void depth_to_vertex_kernel(image<float> dm, image<float3> vm, intrinsics K)
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float d = dm.data[i];
+    float d = dm[i];
 
-    vm.data[i].x = (u - K.cx) * d / K.fx;
-    vm.data[i].y = (v - K.cy) * d / K.fy;
-    vm.data[i].z = d;
+    vm[i].x = (u - K.cx) * d / K.fx;
+    vm[i].y = (v - K.cy) * d / K.fy;
+    vm[i].z = d;
 }
 
 
@@ -75,10 +75,10 @@ void vertex_to_normal_kernel(image<float3> vm, image<float4> nm, intrinsics K)
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u <= 0 || u >= K.width - 1 || v <= 0 || v >= K.height - 1) return;
 
-    float3 v00 = vm.data[(u - 1) + v * K.width];
-    float3 v10 = vm.data[(u + 1) + v * K.width];
-    float3 v01 = vm.data[u + (v - 1) * K.width];
-    float3 v11 = vm.data[u + (v + 1) * K.width];
+    float3 v00 = vm[(u - 1) + v * K.width];
+    float3 v10 = vm[(u + 1) + v * K.width];
+    float3 v01 = vm[u + (v - 1) * K.width];
+    float3 v11 = vm[u + (v + 1) * K.width];
 
     float3 normal = {0.0f, 0.0f, 0.0f};
     if (v00.z != 0 && v01.z != 0 && v10.z != 0 && v11.z != 0) {
@@ -87,9 +87,9 @@ void vertex_to_normal_kernel(image<float3> vm, image<float4> nm, intrinsics K)
         normal = normalize(cross(dy, dx));
     }
     int i = u + v * K.width;
-    nm.data[i].x = normal.x;
-    nm.data[i].y = normal.y;
-    nm.data[i].z = normal.z;
+    nm[i].x = normal.x;
+    nm[i].y = normal.y;
+    nm[i].z = normal.z;
 }
 
 
@@ -101,10 +101,10 @@ void vertex_to_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsi
     if (u <= 0 || u >= K.width - 1 || v <= 0 || v >= K.height - 1) return;
 
     int i = u + v * K.width;
-    float3 v00 = vm.data[(u - 1) + v * K.width];
-    float3 v10 = vm.data[(u + 1) + v * K.width];
-    float3 v01 = vm.data[u + (v - 1) * K.width];
-    float3 v11 = vm.data[u + (v + 1) * K.width];
+    float3 v00 = vm[(u - 1) + v * K.width];
+    float3 v10 = vm[(u + 1) + v * K.width];
+    float3 v01 = vm[u + (v - 1) * K.width];
+    float3 v11 = vm[u + (v + 1) * K.width];
 
     float3 normal = {0.0f, 0.0f, 0.0f};
     if (v00.z != 0 && v01.z != 0 && v10.z != 0 && v11.z != 0) {
@@ -115,15 +115,15 @@ void vertex_to_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsi
 
     float r = 0.0f;
     if (length(normal) > 0.0f) {
-        float d = vm.data[i].z;
+        float d = vm[i].z;
         float f = 0.5f * (K.fx + K.fy);
         r = sqrtf(2.0f) * d / f;
     }
 
-    nm.data[i].x = normal.x;
-    nm.data[i].y = normal.y;
-    nm.data[i].z = normal.z;
-    nm.data[i].w = r;
+    nm[i].x = normal.x;
+    nm[i].y = normal.y;
+    nm[i].z = normal.z;
+    nm[i].w = r;
 }
 
 
@@ -135,8 +135,8 @@ void reset_volume_kernel(volume<sdf32f_t> vol)
     int z = threadIdx.z + blockIdx.z * blockDim.z;
     if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
     int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
-    vol.data[i].tsdf = 1.0f;
-    vol.data[i].weight = 0.0f;
+    vol[i].tsdf = 1.0f;
+    vol[i].weight = 0.0f;
 }
 
 

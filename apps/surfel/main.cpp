@@ -31,7 +31,7 @@ image<float3>   vm1[num_levels];
 image<float4>   nm0[num_levels];
 image<float4>   nm1[num_levels];
 
-cloud<surfel32f_t> pc;
+cloud<surfel32f_t> pcd;
 camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
@@ -87,7 +87,7 @@ int main(int argc, char** argv)
     cam.start();
 
     int size = 0x1000000;
-    pc.allocate(size, DEVICE_CUDA_MAPPED);
+    pcd.allocate(size, DEVICE_CUDA);
 
     preallocate();
     im.clear();
@@ -105,8 +105,8 @@ int main(int argc, char** argv)
         cam.read(&rdm, &cm);
         preprocess();
         if (frame > 0) track();
-        integrate_cloud(&pc, &vm0[0], &nm0[0], &im, cam.K, P);
-        raycast_cloud(&pc, &vm1[0], &nm1[0], &im, cam.K, P);
+        integrate_cloud(&pcd, &vm0[0], &nm0[0], &im, cam.K, P);
+        raycast_cloud(&pcd, &vm1[0], &nm1[0], &im, cam.K, P);
         render_phong_light(&rm, &vm1[0], &nm1[0], cam.K);
         frame++;
 

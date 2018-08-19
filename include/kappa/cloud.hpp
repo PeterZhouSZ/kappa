@@ -15,6 +15,12 @@ struct cloud {
     cloud() = default;
     ~cloud() = default;
 
+    __host__ __device__
+    T& operator[](int i) { return data[i]; }
+
+    __host__ __device__
+    const T& operator[](int i) const { return data[i]; }
+
     void allocate(int capacity, int device = DEVICE_CUDA);
     void deallocate();
 

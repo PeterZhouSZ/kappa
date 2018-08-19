@@ -11,8 +11,8 @@ void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float4>
     int i = u + v * K.width;
     float3 light = {0.0f, 0.0f, 0.0f};
     float3 view = {0.0f, 0.0f, 0.0f};
-    float3 p = vm.data[i];
-    float3 n = make_float3(nm.data[i]);
+    float3 p = vm[i];
+    float3 n = make_float3(nm[i]);
     float ambient = 0.1f;
     float diffuse = 0.5f;
     float specular = 0.2f;
@@ -23,7 +23,7 @@ void render_phong_light_kernel(image<rgb8_t> im, image<float3> vm, image<float4>
     float3 R = normalize(2 * n * dot(n, L) - L);
     float intensity = ambient + diffuse * fmaxf(dot(n, L), 0.0f) + specular * __powf(fmaxf(dot(R, V), 0.0f), power);
     uint8_t gray = (uint8_t)(clamp(intensity, 0.0f, 1.0f) * 255.0f);
-    im.data[i] = {gray, gray, gray};
+    im[i] = {gray, gray, gray};
 }
 
 
@@ -35,10 +35,10 @@ void render_normal_kernel(image<rgb8_t> im, image<float4> nm, intrinsics K)
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float3 n = make_float3(nm.data[i]);
-    im.data[i] = {(uint8_t)((0.3f + (-n.x + 1.0f) * 0.35f) * 255.0f),
-                  (uint8_t)((0.3f + (-n.y + 1.0f) * 0.35f) * 255.0f),
-                  (uint8_t)((0.3f + (-n.z + 1.0f) * 0.35f) * 255.0f)};
+    float3 n = make_float3(nm[i]);
+    im[i] = {(uint8_t)((0.3f + (-n.x + 1.0f) * 0.35f) * 255.0f),
+             (uint8_t)((0.3f + (-n.y + 1.0f) * 0.35f) * 255.0f),
+             (uint8_t)((0.3f + (-n.z + 1.0f) * 0.35f) * 255.0f)};
 }
 
 

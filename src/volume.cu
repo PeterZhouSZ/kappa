@@ -10,7 +10,7 @@ float tsdf_at(volume<sdf32f_t> vol, int x, int y, int z)
         y < 0 || y >= vol.dimension.y ||
         z < 0 || z >= vol.dimension.z)
         return 1.0f; // cannot interpolate
-    return vol.data[i].tsdf;
+    return vol[i].tsdf;
 }
 
 
