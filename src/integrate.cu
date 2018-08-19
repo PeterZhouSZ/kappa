@@ -94,6 +94,7 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<floa
 
     pcd[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
     pcd[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
+    pcd[k].normal = normalize(pcd[k].normal);
     pcd[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
     pcd[k].weight = wt + wtt;
 }
