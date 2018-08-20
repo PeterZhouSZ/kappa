@@ -23,7 +23,7 @@ void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, image<float4>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);
 
-void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float4>* nm, intrinsics K);
+void render_phong_light(image<rgb8_t>* im, const image<float3>* vm, const image<float4>* nm, intrinsics K, float3 light, float3 view);
 void render_normal(image<rgb8_t>* im, const image<float4>* nm, intrinsics K);
 
 uint32_t sum_scan_cuda(uint32_t* a, uint32_t* sum, int n);

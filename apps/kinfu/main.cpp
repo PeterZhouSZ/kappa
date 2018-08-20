@@ -19,6 +19,7 @@ float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
 float mu = 0.1f;
+float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8_t>   im;
 image<uint16_t> rdm;
@@ -107,7 +108,8 @@ int main(int argc, char** argv)
         if (frame > 0) track();
         integrate_volume(&vol, &dm, cam.K, P, mu, max_weight);
         raycast_volume(&vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
-        render_phong_light(&im, &vm1[0], &nm1[0], cam.K);
+        float3 view = {P.m03, P.m13, P.m23};
+        render_phong_light(&im, &vm1[0], &nm1[0], cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);
