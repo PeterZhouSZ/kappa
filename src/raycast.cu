@@ -119,7 +119,7 @@ void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4
 void raycast_cloud(const cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
 {
     static image<uint32_t> zbuf;
-    zbuf.allocate(K.width, K.height, DEVICE_CUDA);
+    zbuf.resize(K.width, K.height, DEVICE_CUDA);
     zbuf.clear(0xff);
     im->clear();
     {
