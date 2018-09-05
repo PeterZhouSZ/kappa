@@ -60,9 +60,22 @@ void raycast_z_buffer_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, intri
     int v = roundf((q.y / q.z) * K.fy + K.cy);
     if (u < 0 || u >= K.width || v < 0 || v >= K.height) return;
 
-    int i = u + v * K.width;
+    float f = 0.5 * (K.fx + K.fy);
+    int r = pcd[k].radius * f / q.z + 0.5f;
+    int r2 = r * r; // radius squared
+
     uint32_t z = q.z * ZBUFFER_SCALE;
-    atomicMin(&zbuf[i], z);
+    for (int dy = -r; dy <= r; ++dy) {
+        for (int dx = -r; dx <= r; ++dx) {
+            int x = u + dx;
+            int y = v + dy;
+            if (x < 0 || x >= K.width || y < 0 || y >= K.height) continue;
+            if (dx * dx + dy * dy > r2) continue;
+
+            int i = x + y * K.width;
+            atomicMin(&zbuf[i], z);
+        }
+    }
 }
 
 
@@ -80,10 +93,23 @@ void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<ui
     int v = roundf((q.y / q.z) * K.fy + K.cy);
     if (u < 0 || u >= K.width || v < 0 || v >= K.height) return;
 
-    int i = u + v * K.width;
+    float f = 0.5 * (K.fx + K.fy);
+    int r = pcd[k].radius * f / q.z + 0.5f;
+    int r2 = r * r; // radius squared
+
     uint32_t z = q.z * ZBUFFER_SCALE;
-    if (z > zbuf[i]) return;
-    im[i].x = k + 1;
+    for (int dy = -r; dy <= r; ++dy) {
+        for (int dx = -r; dx <= r; ++dx) {
+            int x = u + dx;
+            int y = v + dy;
+            if (x < 0 || x >= K.width || y < 0 || y >= K.height) continue;
+            if (dx * dx + dy * dy > r2) continue;
+
+            int i = x + y * K.width;
+            if (z > zbuf[i]) continue;
+            im[i].x = k + 1;
+        }
+    }
 }
 
 
