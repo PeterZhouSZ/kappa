@@ -41,39 +41,39 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
 
 
 __global__
-void match_surfel_kernel(image<float3> vm, image<uint4> im, image<uint32_t> mm, intrinsics K, mat4x4 T)
+void match_surfel_kernel(image<float3> vm, image<uint32_t> im, image<uint32_t> mm, intrinsics K, mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im[i].x;
+    int k = im[i];
     mm[i] = 0;
     if (vm[i].z > 0.0f && k == 0) mm[i] = 1;
 }
 
 
 __global__
-void update_index_kernel(image<uint4> im, image<uint32_t> mm, image<uint32_t> sm, intrinsics K, int base)
+void update_index_kernel(image<uint32_t> im, image<uint32_t> mm, image<uint32_t> sm, intrinsics K, int base)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
     int i = u + v * K.width;
-    im[i].x = base + mm[i] * sm[i];
+    im[i] = base + mm[i] * sm[i];
 }
 
 
 __global__
-void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<float4> nm, image<uint4> im, intrinsics K, mat4x4 T)
+void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<float4> nm, image<uint32_t> im, intrinsics K, mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im[i].x;
+    int k = im[i];
     if (vm[i].z == 0.0f) return;
 
     float sigma_r = 0.6f;
@@ -111,7 +111,7 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
 }
 
 
-void integrate_cloud(cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
+void integrate_cloud(cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);

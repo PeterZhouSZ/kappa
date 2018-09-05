@@ -17,8 +17,8 @@ void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat
 void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4>* nm, intrinsics K, mat4x4 T, float mu, float near, float far);
 
 void reset_cloud(cloud<surfel32f_t>* pc);
-void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T);
-void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T);
+void integrate_cloud(cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T);
+void raycast_cloud(const cloud<surfel32f_t>* pc, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T);
 
 mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, image<float4>* nm1,
                    intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold);

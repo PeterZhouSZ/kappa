@@ -80,7 +80,7 @@ void raycast_z_buffer_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, intri
 
 
 __global__
-void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<uint4> im, intrinsics K, mat4x4 T)
+void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<uint32_t> im, intrinsics K, mat4x4 T)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
@@ -107,14 +107,14 @@ void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<ui
 
             int i = x + y * K.width;
             if (z > zbuf[i]) continue;
-            im[i].x = k + 1;
+            im[i] = k + 1;
         }
     }
 }
 
 
 __global__
-void raycast_cloud_kernel(cloud<surfel32f_t> pcd, image<uint4> im, image<float3> vm, image<float4> nm, intrinsics K)
+void raycast_cloud_kernel(cloud<surfel32f_t> pcd, image<uint32_t> im, image<float3> vm, image<float4> nm, intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -124,7 +124,7 @@ void raycast_cloud_kernel(cloud<surfel32f_t> pcd, image<uint4> im, image<float3>
     vm[i] = {0.0f, 0.0f, 0.0f};
     nm[i] = {0.0f, 0.0f, 0.0f};
 
-    int k = im[i].x;
+    int k = im[i];
     if (k == 0) return;
 
     vm[i] = pcd[k - 1].pos;
@@ -142,7 +142,7 @@ void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4
 }
 
 
-void raycast_cloud(const cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint4>* im, intrinsics K, mat4x4 T)
+void raycast_cloud(const cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);

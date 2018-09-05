@@ -25,7 +25,7 @@ image<rgb8_t>   rm;
 image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8_t>   cm;
-image<uint4>    im;
+image<uint32_t> im;
 image<float>    dm0[num_levels];
 image<float3>   vm0[num_levels];
 image<float3>   vm1[num_levels];
