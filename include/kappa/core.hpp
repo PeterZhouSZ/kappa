@@ -1,6 +1,5 @@
 #pragma once
 #include "camera.hpp"
-#include "common.hpp"
 #include "cloud.hpp"
 #include "math.hpp"
 #include "volume.hpp"
