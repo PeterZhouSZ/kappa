@@ -2,12 +2,18 @@
 
 
 __global__
-void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K, mat4x4 T, float mu, float max_weight)
+void integrate_volume_kernel(
+    volume<voxel> vol,
+    image<float> dm,
+    intrinsics K,
+    mat4x4 T,
+    float mu,
+    float maxw)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int z = threadIdx.z + blockIdx.z * blockDim.z;
-    if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
+    if (x >= vol.shape.x || y >= vol.shape.y || z >= vol.shape.z) return;
 
     float3 p = {(float)x, (float)y, (float)z};
     p = vol.offset + p * vol.voxel_size;
@@ -25,23 +31,30 @@ void integrate_volume_kernel(volume<sdf32f_t> vol, image<float> dm, intrinsics K
     if (dist <= -mu) return;
 
     float sigma_r = 0.6f;
-    float max_rad_dist = sqrtf(K.width * K.width * 0.25f + K.height * K.height * 0.25f);
+    float max_rad_dist = sqrtf(
+        K.width * K.width * 0.25f +
+        K.height * K.height * 0.25f);
     float inv_r_sigma2 = -1.0 / (2.0f * sigma_r * sigma_r);
     float2 uv = {(float)(u - K.cx), (float)(v - K.cy)};
     float rad_dist = length(uv) / max_rad_dist;
 
-    int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
+    int i = x + y * vol.shape.x + z * vol.shape.x * vol.shape.y;
     float ftt = fminf(1.0f, dist / mu);
     float wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
     float ft  = vol[i].tsdf;
     float wt  = vol[i].weight;
     vol[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);
-    vol[i].weight = fminf(wt + wtt, max_weight);
+    vol[i].weight = fminf(wt + wtt, maxw);
 }
 
 
 __global__
-void match_surfel_kernel(image<float3> vm, image<uint32_t> im, image<uint32_t> mm, intrinsics K, mat4x4 T)
+void match_surfel_kernel(
+    image<float3> vm,
+    image<uint32_t> im,
+    image<uint32_t> mm,
+    intrinsics K,
+    mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -50,23 +63,35 @@ void match_surfel_kernel(image<float3> vm, image<uint32_t> im, image<uint32_t> m
     int i = u + v * K.width;
     int k = im[i];
     mm[i] = 0;
-    if (vm[i].z > 0.0f && k == 0) mm[i] = 1;
+    if (vm[i].z > 0.0f && k == 0)
+        mm[i] = 1;
 }
 
 
 __global__
-void update_index_kernel(image<uint32_t> im, image<uint32_t> mm, image<uint32_t> sm, intrinsics K, int base)
+void update_index_kernel(
+    image<uint32_t> im,
+    image<uint32_t> mm,
+    image<uint32_t> sm,
+    intrinsics K,
+    int offset)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
     int i = u + v * K.width;
-    im[i] = base + mm[i] * sm[i];
+    im[i] = offset + mm[i] * sm[i];
 }
 
 
 __global__
-void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<float4> nm, image<uint32_t> im, intrinsics K, mat4x4 T)
+void integrate_cloud_kernel(
+    cloud<surfel> pcd,
+    image<float3> vm,
+    image<float4> nm,
+    image<uint32_t> im,
+    intrinsics K,
+    mat4x4 T)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -77,7 +102,9 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<floa
     if (vm[i].z == 0.0f) return;
 
     float sigma_r = 0.6f;
-    float max_rad_dist = sqrtf(K.width * K.width * 0.25f + K.height * K.height * 0.25f);
+    float max_rad_dist = sqrtf(
+        K.width * K.width * 0.25f +
+        K.height * K.height * 0.25f);
     float inv_r_sigma2 = -1.0 / (2.0f * sigma_r * sigma_r);
     float2 uv = {(float)(u - K.cx), (float)(v - K.cy)};
     float rad_dist = length(uv) / max_rad_dist;
@@ -100,18 +127,29 @@ void integrate_cloud_kernel(cloud<surfel32f_t> pcd, image<float3> vm, image<floa
 }
 
 
-void integrate_volume(volume<sdf32f_t>* vol, image<float>* dm, intrinsics K, mat4x4 T, float mu, float maxw)
+void integrate(volume<voxel>* vol,
+               image<float>* dm,
+               intrinsics K,
+               mat4x4 T,
+               float mu,
+               float maxw)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
-    grid_size.x = divup(vol->dimension.x, block_size.x);
-    grid_size.y = divup(vol->dimension.y, block_size.y);
-    grid_size.z = divup(vol->dimension.z, block_size.z);
-    integrate_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), dm->gpu(), K, T.inverse(), mu, maxw);
+    grid_size.x = divup(vol->shape.x, block_size.x);
+    grid_size.y = divup(vol->shape.y, block_size.y);
+    grid_size.z = divup(vol->shape.z, block_size.z);
+    integrate_volume_kernel<<<grid_size, block_size>>>(
+        vol->cuda(), dm->cuda(), K, T.inverse(), mu, maxw);
 }
 
 
-void integrate_cloud(cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T)
+void integrate(cloud<surfel>* pcd,
+               image<float3>* vm,
+               image<float4>* nm,
+               image<uint32_t>* im,
+               intrinsics K,
+               mat4x4 T)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);
@@ -119,12 +157,16 @@ void integrate_cloud(cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* 
 
     dim3 block_size(16, 16);
     dim3 grid_size;
-    grid_size.x = divup(K.width, block_size.x);
+    grid_size.x = divup(K.width,  block_size.x);
     grid_size.y = divup(K.height, block_size.y);
 
-    match_surfel_kernel<<<grid_size, block_size>>>(vm->gpu(), im->gpu(), mm.gpu(), K, T);
-    int sum = sum_scan_cuda(mm.data, sm.data, K.width * K.height);
-    update_index_kernel<<<grid_size, block_size>>>(im->gpu(), mm.gpu(), sm.gpu(), K, pcd->size);
-    integrate_cloud_kernel<<<grid_size, block_size>>>(pcd->gpu(), vm->gpu(), nm->gpu(), im->gpu(), K, T);
+    match_surfel_kernel<<<grid_size, block_size>>>(
+        vm->cuda(), im->cuda(), mm.cuda(), K, T);
+
+    int sum = prescan(mm.data, sm.data, K.width * K.height);
+    update_index_kernel<<<grid_size, block_size>>>(
+        im->cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
+    integrate_cloud_kernel<<<grid_size, block_size>>>(
+        pcd->cuda(), vm->cuda(), nm->cuda(), im->cuda(), K, T);
     pcd->size += sum;
 }

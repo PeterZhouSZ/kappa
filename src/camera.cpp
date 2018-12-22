@@ -12,13 +12,12 @@ camera::camera(const char* uri)
     if (control) control->setSpeed(-1);
     status = depth.create(device, SENSOR_DEPTH);
     status = color.create(device, SENSOR_COLOR);
-    if (depth.isPropertySupported(openni::STREAM_PROPERTY_MIRRORING))
+    if (depth.isPropertySupported(STREAM_PROPERTY_MIRRORING))
         status = depth.setMirroringEnabled(false);
-    if (color.isPropertySupported(openni::STREAM_PROPERTY_MIRRORING))
+    if (color.isPropertySupported(STREAM_PROPERTY_MIRRORING))
         status = color.setMirroringEnabled(false);
     assert(status == STATUS_OK);
 }
-
 
 camera::~camera()
 {
@@ -30,7 +29,6 @@ camera::~camera()
     OpenNI::shutdown();
 }
 
-
 void camera::start()
 {
     status = depth.start();
@@ -38,30 +36,38 @@ void camera::start()
     assert(status == STATUS_OK);
 }
 
-
-bool camera::read(image<uint16_t>* dm, image<rgb8_t>* cm)
+bool camera::read(image<uint16_t>* dm)
 {
-    if (dm) {
-        VideoFrameRef frame;
-        status = depth.readFrame(&frame);
-        dm->resize(frame.getWidth(), frame.getHeight(), DEVICE_CUDA_MAPPED);
-        memcpy(dm->data, frame.getData(), frame.getDataSize());
-    }
-    if (cm) {
-        VideoFrameRef frame;
-        status = color.readFrame(&frame);
-        cm->resize(frame.getWidth(), frame.getHeight(), DEVICE_CUDA_MAPPED);
-        memcpy(cm->data, frame.getData(), frame.getDataSize());
-    }
+    status = depth.readFrame(&frame);
+    int width = frame.getWidth();
+    int height = frame.getHeight();
+    const void* data = frame.getData();
+    size_t size = frame.getDataSize();
+
+    dm->resize(width, height, DEVICE_CUDA_MAPPED);
+    memcpy(dm->data, data, size);
     return status == STATUS_OK;
 }
 
+bool camera::read(image<rgb8>* cm)
+{
+    status = color.readFrame(&frame);
+    int width = frame.getWidth();
+    int height = frame.getHeight();
+    const void* data = frame.getData();
+    size_t size = frame.getDataSize();
 
-void camera::set_resolution(resolution res)
+    cm->resize(width, height, DEVICE_CUDA_MAPPED);
+    memcpy(cm->data, data, size);
+    return status == STATUS_OK;
+}
+
+void camera::resolution(int stream, int res)
 {
     int width;
     int height;
     const int fps = 30;
+    VideoMode mode;
 
     switch (res) {
         case RESOLUTION_QVGA:
@@ -76,13 +82,18 @@ void camera::set_resolution(resolution res)
             break;
     };
 
-    VideoMode mode;
-    mode = depth.getVideoMode();
-    mode.setResolution(width, height);
-    mode.setFps(fps);
-    depth.setVideoMode(mode);
-    mode = color.getVideoMode();
-    mode.setResolution(width, height);
-    mode.setFps(fps);
-    color.setVideoMode(mode);
+    switch (stream) {
+        case STREAM_DEPTH:
+            mode = depth.getVideoMode();
+            mode.setResolution(width, height);
+            mode.setFps(fps);
+            depth.setVideoMode(mode);
+            break;
+        case STREAM_COLOR:
+            mode = color.getVideoMode();
+            mode.setResolution(width, height);
+            mode.setFps(fps);
+            color.setVideoMode(mode);
+            break;
+    };
 }

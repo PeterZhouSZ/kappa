@@ -1,9 +1,16 @@
 #include <kappa/core.hpp>
-#define ZBUFFER_SCALE 100000
 
 
 __global__
-void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float4> nm, intrinsics K, mat4x4 T, float mu, float near, float far)
+void raycast_volume_kernel(
+    volume<voxel> vol,
+    image<float3> vm,
+    image<float4> nm,
+    intrinsics K,
+    mat4x4 T,
+    float mu,
+    float near,
+    float far)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -20,13 +27,13 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float4>
     float z = near;
     float3 p = origin + direction * z;
 
-    float ft = nearest_tsdf(vol, p);
+    float ft = vol.nearest(p);
     float ftt;
     float step = 0.8f * mu;
     float min_step = vol.voxel_size;
     for (; z <= far; z += step) {
         p = origin + direction * z;
-        ftt = interp_tsdf(vol, p);
+        ftt = vol.interp(p);
         if (ftt < 0.0f) break;
         step = fmaxf(0.8f * ftt * mu, min_step);
         ft = ftt;
@@ -41,13 +48,17 @@ void raycast_volume_kernel(volume<sdf32f_t> vol, image<float3> vm, image<float4>
     if (z >= 0.0f) {
         p = origin + direction * z;
         vm[i] = p;
-        nm[i] = make_float4(grad_tsdf(vol, p));
+        nm[i] = make_float4(vol.grad(p));
     }
 }
 
 
 __global__
-void raycast_z_buffer_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, intrinsics K, mat4x4 T)
+void raycast_z_buffer_kernel(
+    cloud<surfel> pcd,
+    image<uint32_t> zbuf,
+    intrinsics K,
+    mat4x4 T)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
@@ -80,7 +91,12 @@ void raycast_z_buffer_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, intri
 
 
 __global__
-void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<uint32_t> im, intrinsics K, mat4x4 T)
+void raycast_index_kernel(
+    cloud<surfel> pcd,
+    image<uint32_t> zbuf,
+    image<uint32_t> im,
+    intrinsics K,
+    mat4x4 T)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
@@ -114,7 +130,12 @@ void raycast_index_kernel(cloud<surfel32f_t> pcd, image<uint32_t> zbuf, image<ui
 
 
 __global__
-void raycast_cloud_kernel(cloud<surfel32f_t> pcd, image<uint32_t> im, image<float3> vm, image<float4> nm, intrinsics K)
+void raycast_cloud_kernel(
+    cloud<surfel> pcd,
+    image<uint32_t> im,
+    image<float3> vm,
+    image<float4> nm,
+    intrinsics K)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -132,17 +153,30 @@ void raycast_cloud_kernel(cloud<surfel32f_t> pcd, image<uint32_t> im, image<floa
 }
 
 
-void raycast_volume(const volume<sdf32f_t>* vol, image<float3>* vm, image<float4>* nm, intrinsics K, mat4x4 T, float mu, float near, float far)
+void raycast(const volume<voxel>* vol,
+             image<float3>* vm,
+             image<float4>* nm,
+             intrinsics K,
+             mat4x4 T,
+             float mu,
+             float near,
+             float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raycast_volume_kernel<<<grid_size, block_size>>>(vol->gpu(), vm->gpu(), nm->gpu(), K, T, mu, near, far);
+    raycast_volume_kernel<<<grid_size, block_size>>>(
+        vol->cuda(), vm->cuda(), nm->cuda(), K, T, mu, near, far);
 }
 
 
-void raycast_cloud(const cloud<surfel32f_t>* pcd, image<float3>* vm, image<float4>* nm, image<uint32_t>* im, intrinsics K, mat4x4 T)
+void raycast(const cloud<surfel>* pcd,
+             image<float3>* vm,
+             image<float4>* nm,
+             image<uint32_t>* im,
+             intrinsics K,
+             mat4x4 T)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);
@@ -151,14 +185,17 @@ void raycast_cloud(const cloud<surfel32f_t>* pcd, image<float3>* vm, image<float
     {
         unsigned int block_size = 512;
         unsigned int grid_size = divup(pcd->size, block_size);
-        raycast_z_buffer_kernel<<<grid_size, block_size>>>(pcd->gpu(), zbuf.gpu(), K, T.inverse());
-        raycast_index_kernel<<<grid_size, block_size>>>(pcd->gpu(), zbuf.gpu(), im->gpu(), K, T.inverse());
+        raycast_z_buffer_kernel<<<grid_size, block_size>>>(
+            pcd->cuda(), zbuf.cuda(), K, T.inverse());
+        raycast_index_kernel<<<grid_size, block_size>>>(
+            pcd->cuda(), zbuf.cuda(), im->cuda(), K, T.inverse());
     }
     {
         dim3 block_size(16, 16);
         dim3 grid_size;
         grid_size.x = divup(K.width, block_size.x);
         grid_size.y = divup(K.height, block_size.y);
-        raycast_cloud_kernel<<<grid_size, block_size>>>(pcd->gpu(), im->gpu(), vm->gpu(), nm->gpu(), K);
+        raycast_cloud_kernel<<<grid_size, block_size>>>(
+            pcd->cuda(), im->cuda(), vm->cuda(), nm->cuda(), K);
     }
 }

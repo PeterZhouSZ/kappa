@@ -7,42 +7,42 @@
 #include <kappa/core.hpp>
 
 
-constexpr int num_levels = 3;
+constexpr int levels = 3;
 int frame = 0;
-int icp_num_iterations = 10;
+int num_iterations = 10;
 float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
-float bilateral_d_sigma = 0.1f;
-float bilateral_r_sigma = 4.0f;
-float max_weight = 100.0f;
+float d_sigma = 0.1f;
+float r_sigma = 4.0f;
+float maxw = 100.0f;
 float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
 float mu = 0.1f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
-image<rgb8_t>   rm;
+image<rgb8>     rm;
 image<uint16_t> rdm;
 image<float>    dm;
-image<rgb8_t>   cm;
+image<rgb8>     cm;
 image<uint32_t> im;
-image<float>    dm0[num_levels];
-image<float3>   vm0[num_levels];
-image<float3>   vm1[num_levels];
-image<float4>   nm0[num_levels];
-image<float4>   nm1[num_levels];
+image<float>    dm0[levels];
+image<float3>   vm0[levels];
+image<float3>   vm1[levels];
+image<float4>   nm0[levels];
+image<float4>   nm1[levels];
 
-cloud<surfel32f_t> pcd;
+cloud<surfel> pcd;
 camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
 
-static void preallocate()
+static void prealloc()
 {
     rm.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
     dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     im.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    for (int level = 0; level < num_levels; ++level) {
+    for (int level = 0; level < levels; ++level) {
         int width = cam.K.width >> level;
         int height = cam.K.height >> level;
         dm0[level].resize(width, height, DEVICE_CUDA);
@@ -51,19 +51,6 @@ static void preallocate()
         vm1[level].resize(width, height, DEVICE_CUDA);
         nm1[level].resize(width, height, DEVICE_CUDA);
     }
-}
-
-static void preprocess()
-{
-    raw_to_depth(&rdm, &dm, cam.K, cutoff);
-    depth_bilateral(&dm, &dm0[0], cam.K, bilateral_d_sigma, bilateral_r_sigma);
-    depth_to_vertex(&dm0[0], &vm0[0], cam.K);
-    vertex_to_normal_radius(&vm0[0], &nm0[0], cam.K);
-}
-
-static void track()
-{
-    P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P, icp_num_iterations, dist_threshold, angle_threshold);
 }
 
 
@@ -75,10 +62,11 @@ int main(int argc, char** argv)
         fprintf(stdout, "[GLFW] failed to init!\n");
         exit(1);
     }
-    GLFWwindow* win = glfwCreateWindow(640, 480, "demo", NULL, NULL);
+    GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
 
-    cam.set_resolution(RESOLUTION_VGA);
+    cam.resolution(STREAM_DEPTH, RESOLUTION_VGA);
+    cam.resolution(STREAM_COLOR, RESOLUTION_VGA);
     cam.K.cx = 320.0f;
     cam.K.cy = 240.0f;
     cam.K.fx = 585.0f;
@@ -88,9 +76,9 @@ int main(int argc, char** argv)
     cam.start();
 
     int size = 0x1000000;
-    pcd.allocate(size, DEVICE_CUDA);
+    pcd.alloc(size, DEVICE_CUDA);
 
-    preallocate();
+    prealloc();
     im.clear();
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
@@ -103,13 +91,22 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        cam.read(&rdm, &cm);
-        preprocess();
-        if (frame > 0) track();
-        integrate_cloud(&pcd, &vm0[0], &nm0[0], &im, cam.K, P);
-        raycast_cloud(&pcd, &vm1[0], &nm1[0], &im, cam.K, P);
+        cam.read(&rdm);
+        cam.read(&cm);
+        raw_to_depth(&rdm, &dm, cam.K, cutoff);
+        depth_bilateral(&dm, &dm0[0], cam.K, d_sigma, r_sigma);
+        depth_to_vertex(&dm0[0], &vm0[0], cam.K);
+        vertex_to_normal_radius(&vm0[0], &nm0[0], cam.K);
+
+        if (frame > 0) {
+            P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P,
+                            num_iterations, dist_threshold, angle_threshold);
+        }
+
+        integrate(&pcd, &vm0[0], &nm0[0], &im, cam.K, P);
+        raycast(&pcd, &vm1[0], &nm1[0], &im, cam.K, P);
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(&rm, &vm1[0], &nm1[0], cam.K, light, view);
+        render_phong_light(&vm1[0], &nm1[0], &rm, cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);

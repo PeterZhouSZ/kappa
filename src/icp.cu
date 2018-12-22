@@ -4,8 +4,16 @@
 
 
 __global__
-void icp_p2p_se3_kernel(image<JtJse3> JTJ, image<float3> vm0, image<float4> nm0, image<float3> vm1, image<float4> nm1,
-                        intrinsics K, mat4x4 T, float dist_threshold, float angle_threshold)
+void icp_p2p_se3_kernel(
+    image<JtJse3> JTJ,
+    image<float3> vm0,
+    image<float4> nm0,
+    image<float3> vm1,
+    image<float4> nm1,
+    intrinsics K,
+    mat4x4 T,
+    float dist_threshold,
+    float angle_threshold)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -155,8 +163,16 @@ static mat4x4 solve_icp_p2p(JtJse3 J)
 }
 
 
-mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, image<float4>* nm1,
-                   intrinsics K, mat4x4 T, int num_iterations, float dist_threshold, float angle_threshold)
+mat4x4 icp_p2p_se3(
+    image<float3>* vm0,
+    image<float4>* nm0,
+    image<float3>* vm1,
+    image<float4>* nm1,
+    intrinsics K,
+    mat4x4 T,
+    int num_iterations,
+    float dist_threshold,
+    float angle_threshold)
 {
     static unsigned int reduce_size = 8;
     static unsigned int reduce_threads = 256;
@@ -166,15 +182,17 @@ mat4x4 icp_p2p_se3(image<float3>* vm0, image<float4>* nm0, image<float3>* vm1, i
 
     dim3 block_size(16, 16);
     dim3 grid_size;
-    grid_size.x = divup(K.width, block_size.x);
+    grid_size.x = divup(K.width,  block_size.x);
     grid_size.y = divup(K.height, block_size.y);
 
     float last_error = FLT_MAX;
     for (int i = 0; i < num_iterations; ++i) {
         icp_p2p_se3_kernel<<<grid_size, block_size>>>(
-            JTJ.gpu(), vm0->gpu(), nm0->gpu(), vm1->gpu(), nm1->gpu(),
+            JTJ.cuda(), vm0->cuda(), nm0->cuda(), vm1->cuda(), nm1->cuda(),
             K, T, dist_threshold, angle_threshold);
-        se3_reduce_kernel<<<reduce_size, reduce_threads, reduce_threads * sizeof(JtJse3)>>>(JTJ.gpu(), Axb.gpu());
+
+        se3_reduce_kernel<<<reduce_size, reduce_threads,
+            reduce_threads * sizeof(JtJse3)>>>(JTJ.cuda(), Axb.cuda());
         cudaDeviceSynchronize();
 
         for (int i = 1; i < reduce_size; ++i)

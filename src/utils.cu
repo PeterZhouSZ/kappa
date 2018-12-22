@@ -128,13 +128,13 @@ void vertex_to_normal_radius_kernel(image<float3> vm, image<float4> nm, intrinsi
 
 
 __global__
-void reset_volume_kernel(volume<sdf32f_t> vol)
+void reset_volume_kernel(volume<voxel> vol)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
     int z = threadIdx.z + blockIdx.z * blockDim.z;
-    if (x >= vol.dimension.x || y >= vol.dimension.y || z >= vol.dimension.z) return;
-    int i = x + y * vol.dimension.x + z * vol.dimension.x * vol.dimension.y;
+    if (x >= vol.shape.x || y >= vol.shape.y || z >= vol.shape.z) return;
+    int i = x + y * vol.shape.x + z * vol.shape.x * vol.shape.y;
     vol[i].tsdf = 1.0f;
     vol[i].weight = 0.0f;
 }
@@ -146,7 +146,7 @@ void raw_to_depth(const image<uint16_t>* rm, image<float>* dm, intrinsics K, flo
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    raw_to_depth_kernel<<<grid_size, block_size>>>(rm->gpu(), dm->gpu(), K, cutoff);
+    raw_to_depth_kernel<<<grid_size, block_size>>>(rm->cuda(), dm->cuda(), K, cutoff);
 }
 
 
@@ -156,7 +156,7 @@ void depth_bilateral(const image<float>* dm0, image<float>* dm1, intrinsics K, f
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    depth_bilateral_kernel<<<grid_size, block_size>>>(dm0->gpu(), dm1->gpu(), K, d_sigma, r_sigma);
+    depth_bilateral_kernel<<<grid_size, block_size>>>(dm0->cuda(), dm1->cuda(), K, d_sigma, r_sigma);
 }
 
 
@@ -166,7 +166,7 @@ void depth_to_vertex(const image<float>* dm, image<float3>* vm, intrinsics K)
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    depth_to_vertex_kernel<<<grid_size, block_size>>>(dm->gpu(), vm->gpu(), K);
+    depth_to_vertex_kernel<<<grid_size, block_size>>>(dm->cuda(), vm->cuda(), K);
 }
 
 
@@ -176,7 +176,7 @@ void vertex_to_normal(const image<float3>* vm, image<float4>* nm, intrinsics K)
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    vertex_to_normal_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
+    vertex_to_normal_kernel<<<grid_size, block_size>>>(vm->cuda(), nm->cuda(), K);
 }
 
 
@@ -186,16 +186,17 @@ void vertex_to_normal_radius(const image<float3>* vm, image<float4>* nm, intrins
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
-    vertex_to_normal_radius_kernel<<<grid_size, block_size>>>(vm->gpu(), nm->gpu(), K);
+    vertex_to_normal_radius_kernel<<<grid_size, block_size>>>(
+        vm->cuda(), nm->cuda(), K);
 }
 
 
-void reset_volume(volume<sdf32f_t>* vol)
+void reset(volume<voxel>* vol)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
-    grid_size.x = divup(vol->dimension.x, block_size.x);
-    grid_size.y = divup(vol->dimension.y, block_size.y);
-    grid_size.z = divup(vol->dimension.z, block_size.z);
-    reset_volume_kernel<<<grid_size, block_size>>>(vol->gpu());
+    grid_size.x = divup(vol->shape.x, block_size.x);
+    grid_size.y = divup(vol->shape.y, block_size.y);
+    grid_size.z = divup(vol->shape.z, block_size.z);
+    reset_volume_kernel<<<grid_size, block_size>>>(vol->cuda());
 }

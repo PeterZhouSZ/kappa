@@ -1,7 +1,4 @@
 #pragma once
-#include <stdlib.h>
-#include <stdint.h>
-#include <cuda_runtime_api.h>
 #include "common.hpp"
 
 
@@ -10,23 +7,30 @@ struct image {
     image() = default;
     ~image() = default;
 
-    __host__ __device__
-    T& operator[](int i) { return data[i]; }
+    CPU_GPU_CODE
+    T& operator[](int i)
+    {
+        return data[i];
+    }
 
-    __host__ __device__
-    const T& operator[](int i) const { return data[i]; }
+    CPU_GPU_CODE
+    const T& operator[](int i) const
+    {
+        return data[i];
+    }
 
-    void resize(int width, int height, int device = DEVICE_CPU);
-    void allocate(int width, int height, int device = DEVICE_CPU);
-    void deallocate();
+    void alloc(int width, int height, int device);
+    void free();
+    void resize(int width, int height, int device);
     void clear(uint8_t c = 0x00);
 
-    image<T> gpu() const;
+    image<T> cpu() const;
+    image<T> cuda() const;
 
     int width = 0;
     int height = 0;
     int device;
-    T* data = NULL;
+    T* data = nullptr;
 };
 
 
@@ -34,13 +38,13 @@ template <typename T>
 void image<T>::resize(int width, int height, int device)
 {
     if (this->width == width && this->height == height) return;
-    deallocate();
-    allocate(width, height, device);
+    free();
+    alloc(width, height, device);
 }
 
 
 template <typename T>
-void image<T>::allocate(int width, int height, int device)
+void image<T>::alloc(int width, int height, int device)
 {
     this->width = width;
     this->height = height;
@@ -48,35 +52,35 @@ void image<T>::allocate(int width, int height, int device)
     size_t size = width * height * sizeof(T);
     switch (device) {
         case DEVICE_CPU:
-            this->data = (T*)malloc(size);
+            data = (T*)malloc(size);
             break;
         case DEVICE_CUDA:
-            cudaMalloc((void**)(&data), size);
+            CUDA_MALLOC(data, size);
             break;
         case DEVICE_CUDA_MAPPED:
-            cudaHostAlloc((void**)(&data), size, cudaHostAllocMapped);
+            CUDA_MALLOC_MAPPED(data, size);
             break;
     }
 }
 
 
 template <typename T>
-void image<T>::deallocate()
+void image<T>::free()
 {
-    switch (this->device) {
+    switch (device) {
         case DEVICE_CPU:
-            free(this->data);
+            ::free(data);
             break;
         case DEVICE_CUDA:
-            cudaFree(this->data);
+            CUDA_FREE(data);
             break;
         case DEVICE_CUDA_MAPPED:
-            cudaFreeHost(this->data);
+            CUDA_FREE_MAPPED(data);
             break;
     }
-    this->width = 0;
-    this->height = 0;
-    this->data = NULL;
+    width = 0;
+    height = 0;
+    data = nullptr;
 }
 
 
@@ -86,32 +90,32 @@ void image<T>::clear(uint8_t c)
     size_t size = width * height * sizeof(T);
     switch (this->device) {
         case DEVICE_CPU:
-            memset(this->data, c, size);
+            memset(data, c, size);
             break;
         case DEVICE_CUDA:
         case DEVICE_CUDA_MAPPED:
-            cudaMemset(this->data, c, size);
+            CUDA_MEMSET(data, c, size);
             break;
     }
 }
 
 
 template <typename T>
-image<T> image<T>::gpu() const
+image<T> image<T>::cuda() const
 {
     image<T> im;
-    im.width = this->width;
-    im.height = this->height;
+    im.width = width;
+    im.height = height;
     im.device = DEVICE_CUDA;
-    switch (this->device) {
+    switch (device) {
         case DEVICE_CPU:
-            im.data = NULL;
+            im.data = nullptr;
             break;
         case DEVICE_CUDA:
-            im.data = this->data;
+            im.data = data;
             break;
         case DEVICE_CUDA_MAPPED:
-            cudaHostGetDevicePointer(&im.data, this->data, 0);
+            CUDA_MAP_PTR(im.data, data);
             break;
     }
     return im;

@@ -60,22 +60,27 @@ void prescan_add_block_kernel(uint32_t* a, uint32_t* sum, uint32_t* bsum, int n)
 }
 
 
-uint32_t sum_scan_cuda(uint32_t* a, uint32_t* sum, int n)
+uint32_t prescan(uint32_t* a, uint32_t* sum, int n)
 {
     static int block_size = 512;
     static int elems_per_block = 2 * block_size;
     int grid_size = divup(n, elems_per_block);
 
-    static uint32_t* bsum = NULL;
-    if (bsum == NULL) cudaMalloc((void**)&bsum, sizeof(uint32_t) * elems_per_block);
-    cudaMemset(bsum, 0, sizeof(uint32_t) * elems_per_block);
+    static uint32_t* bsum = nullptr;
+    if (bsum == nullptr)
+        CUDA_MALLOC_T(bsum, uint32_t, elems_per_block);
+    CUDA_MEMSET(bsum, 0, sizeof(uint32_t) * elems_per_block);
 
-    prescan_blelloch_kernel<<<grid_size, block_size, sizeof(uint32_t) * elems_per_block>>>(a, sum, bsum, n);
+    prescan_blelloch_kernel<<<grid_size, block_size,
+        sizeof(uint32_t) * elems_per_block>>>(a, sum, bsum, n);
+
     if (grid_size <= elems_per_block)
-        prescan_blelloch_kernel<<<1, block_size, sizeof(uint32_t) * elems_per_block>>>(bsum, bsum, NULL, grid_size);
+        prescan_blelloch_kernel<<<1, block_size,
+            sizeof(uint32_t) * elems_per_block>>>(
+                bsum, bsum, nullptr, grid_size);
     prescan_add_block_kernel<<<grid_size, block_size>>>(a, sum, bsum, n);
 
-    uint32_t res;
-    cudaMemcpy(&res, &sum[n - 1], sizeof(uint32_t), cudaMemcpyDeviceToHost);
-    return res;
+    uint32_t s;
+    CUDA_MEMCPY_DEVICE_TO_HOST(&s, &sum[n - 1], sizeof(uint32_t));
+    return s;
 }
