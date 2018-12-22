@@ -128,7 +128,7 @@ void integrate_cloud_kernel(
 
 
 void integrate(volume<voxel>* vol,
-               image<float>* dm,
+               const image<float> dm,
                intrinsics K,
                mat4x4 T,
                float mu,
@@ -140,14 +140,14 @@ void integrate(volume<voxel>* vol,
     grid_size.y = divup(vol->shape.y, block_size.y);
     grid_size.z = divup(vol->shape.z, block_size.z);
     integrate_volume_kernel<<<grid_size, block_size>>>(
-        vol->cuda(), dm->cuda(), K, T.inverse(), mu, maxw);
+        vol->cuda(), dm.cuda(), K, T.inverse(), mu, maxw);
 }
 
 
 void integrate(cloud<surfel>* pcd,
-               image<float3>* vm,
-               image<float4>* nm,
-               image<uint32_t>* im,
+               const image<float3> vm,
+               const image<float4> nm,
+               const image<uint32_t> im,
                intrinsics K,
                mat4x4 T)
 {
@@ -161,12 +161,12 @@ void integrate(cloud<surfel>* pcd,
     grid_size.y = divup(K.height, block_size.y);
 
     match_surfel_kernel<<<grid_size, block_size>>>(
-        vm->cuda(), im->cuda(), mm.cuda(), K, T);
+        vm.cuda(), im.cuda(), mm.cuda(), K, T);
 
     int sum = prescan(mm.data, sm.data, K.width * K.height);
     update_index_kernel<<<grid_size, block_size>>>(
-        im->cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
+        im.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), vm->cuda(), nm->cuda(), im->cuda(), K, T);
+        pcd->cuda(), vm.cuda(), nm.cuda(), im.cuda(), K, T);
     pcd->size += sum;
 }

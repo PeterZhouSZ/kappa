@@ -164,10 +164,10 @@ static mat4x4 solve_icp_p2p(JtJse3 J)
 
 
 mat4x4 icp_p2p_se3(
-    image<float3>* vm0,
-    image<float4>* nm0,
-    image<float3>* vm1,
-    image<float4>* nm1,
+    const image<float3> vm0,
+    const image<float4> nm0,
+    const image<float3> vm1,
+    const image<float4> nm1,
     intrinsics K,
     mat4x4 T,
     int num_iterations,
@@ -188,7 +188,7 @@ mat4x4 icp_p2p_se3(
     float last_error = FLT_MAX;
     for (int i = 0; i < num_iterations; ++i) {
         icp_p2p_se3_kernel<<<grid_size, block_size>>>(
-            JTJ.cuda(), vm0->cuda(), nm0->cuda(), vm1->cuda(), nm1->cuda(),
+            JTJ.cuda(), vm0.cuda(), nm0.cuda(), vm1.cuda(), nm1.cuda(),
             K, T, dist_threshold, angle_threshold);
 
         se3_reduce_kernel<<<reduce_size, reduce_threads,

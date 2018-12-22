@@ -153,7 +153,7 @@ void raycast_cloud_kernel(
 }
 
 
-void raycast(const volume<voxel>* vol,
+void raycast(const volume<voxel> vol,
              image<float3>* vm,
              image<float4>* nm,
              intrinsics K,
@@ -167,11 +167,11 @@ void raycast(const volume<voxel>* vol,
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     raycast_volume_kernel<<<grid_size, block_size>>>(
-        vol->cuda(), vm->cuda(), nm->cuda(), K, T, mu, near, far);
+        vol.cuda(), vm->cuda(), nm->cuda(), K, T, mu, near, far);
 }
 
 
-void raycast(const cloud<surfel>* pcd,
+void raycast(const cloud<surfel> pcd,
              image<float3>* vm,
              image<float4>* nm,
              image<uint32_t>* im,
@@ -184,11 +184,11 @@ void raycast(const cloud<surfel>* pcd,
     im->clear();
     {
         unsigned int block_size = 512;
-        unsigned int grid_size = divup(pcd->size, block_size);
+        unsigned int grid_size = divup(pcd.size, block_size);
         raycast_z_buffer_kernel<<<grid_size, block_size>>>(
-            pcd->cuda(), zbuf.cuda(), K, T.inverse());
+            pcd.cuda(), zbuf.cuda(), K, T.inverse());
         raycast_index_kernel<<<grid_size, block_size>>>(
-            pcd->cuda(), zbuf.cuda(), im->cuda(), K, T.inverse());
+            pcd.cuda(), zbuf.cuda(), im->cuda(), K, T.inverse());
     }
     {
         dim3 block_size(16, 16);
@@ -196,6 +196,6 @@ void raycast(const cloud<surfel>* pcd,
         grid_size.x = divup(K.width, block_size.x);
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(
-            pcd->cuda(), im->cuda(), vm->cuda(), nm->cuda(), K);
+            pcd.cuda(), im->cuda(), vm->cuda(), nm->cuda(), K);
     }
 }

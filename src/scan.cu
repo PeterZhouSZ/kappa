@@ -80,7 +80,7 @@ uint32_t prescan(uint32_t* a, uint32_t* sum, int n)
                 bsum, bsum, nullptr, grid_size);
     prescan_add_block_kernel<<<grid_size, block_size>>>(a, sum, bsum, n);
 
-    uint32_t s;
-    CUDA_MEMCPY_DEVICE_TO_HOST(&s, &sum[n - 1], sizeof(uint32_t));
-    return s;
+    uint32_t size;
+    CUDA_MEMCPY_DEVICE_TO_HOST(&size, &sum[n - 1], sizeof(uint32_t));
+    return size;
 }

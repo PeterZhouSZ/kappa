@@ -93,20 +93,20 @@ int main(int argc, char** argv)
 
         cam.read(&rdm);
         cam.read(&cm);
-        raw_to_depth(&rdm, &dm, cam.K, cutoff);
-        depth_bilateral(&dm, &dm0[0], cam.K, d_sigma, r_sigma);
-        depth_to_vertex(&dm0[0], &vm0[0], cam.K);
-        vertex_to_normal(&vm0[0], &nm0[0], cam.K);
+        raw_to_depth(rdm, &dm, cam.K, cutoff);
+        depth_bilateral(dm, &dm0[0], cam.K, d_sigma, r_sigma);
+        depth_to_vertex(dm0[0], &vm0[0], cam.K);
+        vertex_to_normal(vm0[0], &nm0[0], cam.K);
 
-        if (frame > 0) {
-            P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P,
-                            num_iterations, dist_threshold, angle_threshold);
-        }
+        if (frame > 0)
+            P = icp_p2p_se3(
+                vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
+                num_iterations, dist_threshold, angle_threshold);
 
-        integrate(&vol, &dm, cam.K, P, mu, maxw);
-        raycast(&vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
+        integrate(&vol, dm, cam.K, P, mu, maxw);
+        raycast(vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(&vm1[0], &nm1[0], &im, cam.K, light, view);
+        render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);

@@ -52,8 +52,8 @@ void render_normal_kernel(
 
 
 void render_phong_light(
-    const image<float3>* vm,
-    const image<float4>* nm,
+    const image<float3> vm,
+    const image<float4> nm,
     image<rgb8>* im,
     intrinsics K,
     float3 light,
@@ -61,23 +61,23 @@ void render_phong_light(
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
-    grid_size.x = divup(K.width, block_size.x);
+    grid_size.x = divup(K.width,  block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     render_phong_light_kernel<<<grid_size, block_size>>>(
-        vm->cuda(), nm->cuda(), im->cuda(), K, light, view);
+        vm.cuda(), nm.cuda(), im->cuda(), K, light, view);
 }
 
 
 void render_normal(
-    const image<float3>* vm,
-    const image<float4>* nm,
+    const image<float3> vm,
+    const image<float4> nm,
     image<rgb8>* im,
     intrinsics K)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
-    grid_size.x = divup(K.width, block_size.x);
+    grid_size.x = divup(K.width,  block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     render_normal_kernel<<<grid_size, block_size>>>(
-        vm->cuda(), nm->cuda(), im->cuda(), K);
+        vm.cuda(), nm.cuda(), im->cuda(), K);
 }

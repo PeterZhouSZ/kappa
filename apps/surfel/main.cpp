@@ -21,11 +21,11 @@ float far = 4.0f;
 float mu = 0.1f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
-image<rgb8>     rm;
+image<rgb8>     im;
 image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8>     cm;
-image<uint32_t> im;
+image<uint32_t> idm;
 image<float>    dm0[levels];
 image<float3>   vm0[levels];
 image<float3>   vm1[levels];
@@ -39,9 +39,9 @@ mat4x4 P;
 
 static void prealloc()
 {
-    rm.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
+    im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
     dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    im.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    idm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     for (int level = 0; level < levels; ++level) {
         int width = cam.K.width >> level;
         int height = cam.K.height >> level;
@@ -79,7 +79,7 @@ int main(int argc, char** argv)
     pcd.alloc(size, DEVICE_CUDA);
 
     prealloc();
-    im.clear();
+    idm.clear();
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -93,25 +93,25 @@ int main(int argc, char** argv)
 
         cam.read(&rdm);
         cam.read(&cm);
-        raw_to_depth(&rdm, &dm, cam.K, cutoff);
-        depth_bilateral(&dm, &dm0[0], cam.K, d_sigma, r_sigma);
-        depth_to_vertex(&dm0[0], &vm0[0], cam.K);
-        vertex_to_normal_radius(&vm0[0], &nm0[0], cam.K);
+        raw_to_depth(rdm, &dm, cam.K, cutoff);
+        depth_bilateral(dm, &dm0[0], cam.K, d_sigma, r_sigma);
+        depth_to_vertex(dm0[0], &vm0[0], cam.K);
+        vertex_to_normal_radius(vm0[0], &nm0[0], cam.K);
 
-        if (frame > 0) {
-            P = icp_p2p_se3(&vm0[0], &nm0[0], &vm1[0], &nm1[0], cam.K, P,
-                            num_iterations, dist_threshold, angle_threshold);
-        }
+        if (frame > 0)
+            P = icp_p2p_se3(
+                vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
+                num_iterations, dist_threshold, angle_threshold);
 
-        integrate(&pcd, &vm0[0], &nm0[0], &im, cam.K, P);
-        raycast(&pcd, &vm1[0], &nm1[0], &im, cam.K, P);
+        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P);
+        raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P);
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(&vm1[0], &nm1[0], &rm, cam.K, light, view);
+        render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
-        glDrawPixels(rm.width, rm.height, GL_RGB, GL_UNSIGNED_BYTE, rm.data);
+        glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
         glfwSwapBuffers(win);
     }
 
