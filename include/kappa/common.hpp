@@ -6,6 +6,7 @@
 #include <Eigen/LU>
 
 #define ZBUFFER_SCALE 100000
+#define Z_OFFSET 10000000
 
 #ifdef __NVCC__
 #define GPU_CODE __device__

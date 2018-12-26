@@ -58,7 +58,8 @@ void raycast_z_buffer_kernel(
     cloud<surfel> pcd,
     image<uint32_t> zbuf,
     intrinsics K,
-    mat4x4 T)
+    mat4x4 T,
+    float maxw)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
@@ -75,7 +76,8 @@ void raycast_z_buffer_kernel(
     int r = pcd[k].radius * f / q.z + 0.5f;
     int r2 = r * r; // radius squared
 
-    uint32_t z = q.z * ZBUFFER_SCALE;
+    bool unstable = (pcd[k].weight < maxw);
+    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -96,7 +98,8 @@ void raycast_index_kernel(
     image<uint32_t> zbuf,
     image<uint32_t> idm,
     intrinsics K,
-    mat4x4 T)
+    mat4x4 T,
+    float maxw)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
@@ -113,7 +116,8 @@ void raycast_index_kernel(
     int r = pcd[k].radius * f / q.z + 0.5f;
     int r2 = r * r; // radius squared
 
-    uint32_t z = q.z * ZBUFFER_SCALE;
+    bool unstable = (pcd[k].weight < maxw);
+    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -176,7 +180,8 @@ void raycast(const cloud<surfel> pcd,
              image<float4>* nm,
              image<uint32_t>* idm,
              intrinsics K,
-             mat4x4 T)
+             mat4x4 T,
+             float maxw)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);
@@ -186,9 +191,9 @@ void raycast(const cloud<surfel> pcd,
         unsigned int block_size = 512;
         unsigned int grid_size = divup(pcd.size, block_size);
         raycast_z_buffer_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), zbuf.cuda(), K, T.inverse());
+            pcd.cuda(), zbuf.cuda(), K, T.inverse(), maxw);
         raycast_index_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), zbuf.cuda(), idm->cuda(), K, T.inverse());
+            pcd.cuda(), zbuf.cuda(), idm->cuda(), K, T.inverse(), maxw);
     }
     {
         dim3 block_size(16, 16);

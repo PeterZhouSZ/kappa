@@ -67,7 +67,8 @@ void raycast(const cloud<surfel> pcd,
              image<float4>* nm,
              image<uint32_t>* idm,
              intrinsics K,
-             mat4x4 T);
+             mat4x4 T,
+             float maxw);
 
 mat4x4 icp_p2p_se3(
     const image<float3> vm0,
@@ -87,11 +88,5 @@ void render_phong_light(
     intrinsics K,
     float3 light,
     float3 view);
-
-void render_normal(
-    const image<float3> vm,
-    const image<float4> nm,
-    image<rgb8>* im,
-    intrinsics K);
 
 uint32_t prescan(uint32_t* a, uint32_t* sum, int n);
