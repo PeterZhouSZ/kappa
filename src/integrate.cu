@@ -92,7 +92,9 @@ void integrate_cloud_kernel(
     image<float4> nm,
     image<uint32_t> idm,
     intrinsics K,
-    mat4x4 T)
+    mat4x4 T,
+    int timestamp,
+    float delta_r)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -120,11 +122,14 @@ void integrate_cloud_kernel(
     float  rt = pcd[k].radius;
     float  wt = pcd[k].weight;
 
+    pcd[k].weight = wt + wtt;
+    pcd[k].timestamp = timestamp;
+
+    if (rt > 0.0f && rtt > delta_r * rt) return;
     pcd[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
     pcd[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
     pcd[k].normal = normalize(pcd[k].normal);
     pcd[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
-    pcd[k].weight = wt + wtt;
 }
 
 
@@ -150,7 +155,9 @@ void integrate(cloud<surfel>* pcd,
                const image<float4> nm,
                const image<uint32_t> idm,
                intrinsics K,
-               mat4x4 T)
+               mat4x4 T,
+               int timestamp,
+               float delta_r)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);
@@ -168,6 +175,7 @@ void integrate(cloud<surfel>* pcd,
     update_index_kernel<<<grid_size, block_size>>>(
         idm.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(), K, T);
+        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(),
+        K, T, timestamp, delta_r);
     pcd->size += sum;
 }
