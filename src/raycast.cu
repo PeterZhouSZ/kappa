@@ -94,7 +94,7 @@ __global__
 void raycast_index_kernel(
     cloud<surfel> pcd,
     image<uint32_t> zbuf,
-    image<uint32_t> im,
+    image<uint32_t> idm,
     intrinsics K,
     mat4x4 T)
 {
@@ -123,7 +123,7 @@ void raycast_index_kernel(
 
             int i = x + y * K.width;
             if (z > zbuf[i]) continue;
-            im[i] = k + 1;
+            idm[i] = k + 1;
         }
     }
 }
@@ -132,7 +132,7 @@ void raycast_index_kernel(
 __global__
 void raycast_cloud_kernel(
     cloud<surfel> pcd,
-    image<uint32_t> im,
+    image<uint32_t> idm,
     image<float3> vm,
     image<float4> nm,
     intrinsics K)
@@ -145,7 +145,7 @@ void raycast_cloud_kernel(
     vm[i] = {0.0f, 0.0f, 0.0f};
     nm[i] = {0.0f, 0.0f, 0.0f};
 
-    int k = im[i];
+    int k = idm[i];
     if (k == 0) return;
 
     vm[i] = pcd[k - 1].pos;
@@ -174,21 +174,21 @@ void raycast(const volume<voxel> vol,
 void raycast(const cloud<surfel> pcd,
              image<float3>* vm,
              image<float4>* nm,
-             image<uint32_t>* im,
+             image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);
     zbuf.clear(0xff);
-    im->clear();
+    idm->clear();
     {
         unsigned int block_size = 512;
         unsigned int grid_size = divup(pcd.size, block_size);
         raycast_z_buffer_kernel<<<grid_size, block_size>>>(
             pcd.cuda(), zbuf.cuda(), K, T.inverse());
         raycast_index_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), zbuf.cuda(), im->cuda(), K, T.inverse());
+            pcd.cuda(), zbuf.cuda(), idm->cuda(), K, T.inverse());
     }
     {
         dim3 block_size(16, 16);
@@ -196,6 +196,6 @@ void raycast(const cloud<surfel> pcd,
         grid_size.x = divup(K.width, block_size.x);
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), im->cuda(), vm->cuda(), nm->cuda(), K);
+            pcd.cuda(), idm->cuda(), vm->cuda(), nm->cuda(), K);
     }
 }

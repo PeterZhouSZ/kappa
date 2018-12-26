@@ -14,11 +14,9 @@ float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float d_sigma = 0.1f;
 float r_sigma = 4.0f;
-float maxw = 100.0f;
 float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
-float mu = 0.1f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8>     im;
@@ -99,8 +97,7 @@ int main(int argc, char** argv)
         vertex_to_normal_radius(vm0[0], &nm0[0], cam.K);
 
         if (frame > 0)
-            P = icp_p2p_se3(
-                vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
+            P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
                 num_iterations, dist_threshold, angle_threshold);
 
         integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P);

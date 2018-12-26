@@ -99,8 +99,7 @@ int main(int argc, char** argv)
         vertex_to_normal(vm0[0], &nm0[0], cam.K);
 
         if (frame > 0)
-            P = icp_p2p_se3(
-                vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
+            P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
                 num_iterations, dist_threshold, angle_threshold);
 
         integrate(&vol, dm, cam.K, P, mu, maxw);

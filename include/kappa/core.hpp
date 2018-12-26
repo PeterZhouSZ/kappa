@@ -6,7 +6,7 @@
 
 
 void raw_to_depth(
-    const image<uint16_t> rm,
+    const image<uint16_t> rdm,
     image<float>* dm,
     intrinsics K,
     float cutoff);
@@ -56,14 +56,14 @@ void reset(cloud<surfel>* pcd);
 void integrate(cloud<surfel>* pcd,
                const image<float3> vm,
                const image<float4> nm,
-               const image<uint32_t> im,
+               const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T);
 
 void raycast(const cloud<surfel> pcd,
              image<float3>* vm,
              image<float4>* nm,
-             image<uint32_t>* im,
+             image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T);
 

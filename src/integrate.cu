@@ -51,7 +51,7 @@ void integrate_volume_kernel(
 __global__
 void match_surfel_kernel(
     image<float3> vm,
-    image<uint32_t> im,
+    image<uint32_t> idm,
     image<uint32_t> mm,
     intrinsics K,
     mat4x4 T)
@@ -61,16 +61,17 @@ void match_surfel_kernel(
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im[i];
+    int k = idm[i];
     mm[i] = 0;
-    if (vm[i].z > 0.0f && k == 0)
-        mm[i] = 1;
+    if (vm[i].z == 0.0f) return;
+    if (k > 0) return;
+    mm[i] = 1;
 }
 
 
 __global__
 void update_index_kernel(
-    image<uint32_t> im,
+    image<uint32_t> idm,
     image<uint32_t> mm,
     image<uint32_t> sm,
     intrinsics K,
@@ -80,7 +81,7 @@ void update_index_kernel(
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
     int i = u + v * K.width;
-    im[i] = offset + mm[i] * sm[i];
+    idm[i] = offset + mm[i] * sm[i];
 }
 
 
@@ -89,7 +90,7 @@ void integrate_cloud_kernel(
     cloud<surfel> pcd,
     image<float3> vm,
     image<float4> nm,
-    image<uint32_t> im,
+    image<uint32_t> idm,
     intrinsics K,
     mat4x4 T)
 {
@@ -98,7 +99,7 @@ void integrate_cloud_kernel(
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = im[i];
+    int k = idm[i];
     if (vm[i].z == 0.0f) return;
 
     float sigma_r = 0.6f;
@@ -147,7 +148,7 @@ void integrate(volume<voxel>* vol,
 void integrate(cloud<surfel>* pcd,
                const image<float3> vm,
                const image<float4> nm,
-               const image<uint32_t> im,
+               const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T)
 {
@@ -161,12 +162,12 @@ void integrate(cloud<surfel>* pcd,
     grid_size.y = divup(K.height, block_size.y);
 
     match_surfel_kernel<<<grid_size, block_size>>>(
-        vm.cuda(), im.cuda(), mm.cuda(), K, T);
+        vm.cuda(), idm.cuda(), mm.cuda(), K, T);
 
     int sum = prescan(mm.data, sm.data, K.width * K.height);
     update_index_kernel<<<grid_size, block_size>>>(
-        im.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
+        idm.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), vm.cuda(), nm.cuda(), im.cuda(), K, T);
+        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(), K, T);
     pcd->size += sum;
 }
