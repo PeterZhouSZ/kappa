@@ -1,4 +1,4 @@
-#include <kappa/common.hpp>
+#include <kappa/core.hpp>
 
 
 __global__
@@ -67,8 +67,7 @@ uint32_t prescan(uint32_t* a, uint32_t* sum, int n)
     int grid_size = divup(n, elems_per_block);
 
     static uint32_t* bsum = nullptr;
-    if (bsum == nullptr)
-        CUDA_MALLOC_T(bsum, uint32_t, elems_per_block);
+    if (bsum == nullptr) CUDA_MALLOC_T(bsum, uint32_t, elems_per_block);
     CUDA_MEMSET(bsum, 0, sizeof(uint32_t) * elems_per_block);
 
     prescan_blelloch_kernel<<<grid_size, block_size,

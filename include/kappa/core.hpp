@@ -70,6 +70,11 @@ void raycast(const cloud<surfel> pcd,
              mat4x4 T,
              float maxw);
 
+void cleanup(cloud<surfel>* pcd,
+             float maxw,
+             int timestamp,
+             int period);
+
 mat4x4 icp_p2p_se3(
     const image<float3> vm0,
     const image<float4> nm0,

@@ -10,6 +10,7 @@
 constexpr int levels = 3;
 int frame = 0;
 int num_iterations = 10;
+int period = 20;
 float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float d_sigma = 0.1f;
@@ -103,6 +104,7 @@ int main(int argc, char** argv)
                 num_iterations, dist_threshold, angle_threshold);
 
         integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
+        cleanup(&pcd, maxw, frame, period);
         raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, maxw);
         float3 view = {P.m03, P.m13, P.m23};
         render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
