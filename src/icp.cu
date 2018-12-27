@@ -174,8 +174,8 @@ mat4x4 icp_p2p_se3(
     float dist_threshold,
     float angle_threshold)
 {
-    static unsigned int reduce_size = 8;
-    static unsigned int reduce_threads = 256;
+    static uint32_t reduce_size = 8;
+    static uint32_t reduce_threads = 256;
     static image<JtJse3> JTJ, Axb;
     JTJ.resize(K.width, K.height, DEVICE_CUDA);
     Axb.resize(reduce_size, 1, DEVICE_CUDA_MAPPED);

@@ -46,8 +46,8 @@ void cleanup(cloud<surfel>* pcd,
     if (!mask) cudaMalloc((void**)&mask, sizeof(uint32_t) * pcd->capacity);
     if (!sum) cudaMalloc((void**)&sum, sizeof(uint32_t) * pcd->capacity);
 
-    unsigned int block_size = 512;
-    unsigned int grid_size = divup(pcd->size, block_size);
+    uint32_t block_size = 512;
+    uint32_t grid_size = divup(pcd->size, block_size);
     mark_stable_surfel_kernel<<<grid_size, block_size>>>(
         pcd->cuda(), mask, maxw, timestamp, period);
 

@@ -192,8 +192,8 @@ void raycast(const cloud<surfel> pcd,
     zbuf.clear(0xff);
     idm->clear();
     {
-        unsigned int block_size = 512;
-        unsigned int grid_size = divup(pcd.size, block_size);
+        uint32_t block_size = 512;
+        uint32_t grid_size = divup(pcd.size, block_size);
         raycast_z_buffer_kernel<<<grid_size, block_size>>>(
             pcd.cuda(), zbuf.cuda(), K, T.inverse(), maxw);
         raycast_index_kernel<<<grid_size, block_size>>>(

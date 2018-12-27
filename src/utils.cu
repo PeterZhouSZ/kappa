@@ -253,7 +253,7 @@ void reset(volume<voxel>* vol)
 
 void reset(cloud<surfel>* pcd)
 {
-    unsigned int block_size = 512;
-    unsigned int grid_size = divup(pcd->capacity, block_size);
+    uint32_t block_size = 512;
+    uint32_t grid_size = divup(pcd->capacity, block_size);
     reset_cloud_kernel<<<grid_size, block_size>>>(pcd->cuda());
 }
