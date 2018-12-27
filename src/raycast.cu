@@ -77,7 +77,7 @@ void raycast_z_buffer_kernel(
     int r2 = r * r; // radius squared
 
     bool unstable = (pcd[k].weight < maxw);
-    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
+    uint32_t z = q.z * ZBUFFER_SCALE;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -117,7 +117,7 @@ void raycast_index_kernel(
     int r2 = r * r; // radius squared
 
     bool unstable = (pcd[k].weight < maxw);
-    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
+    uint32_t z = q.z * ZBUFFER_SCALE;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -139,7 +139,9 @@ void raycast_cloud_kernel(
     image<uint32_t> idm,
     image<float3> vm,
     image<float4> nm,
-    intrinsics K)
+    intrinsics K,
+    int timestamp,
+    float maxw)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -151,6 +153,9 @@ void raycast_cloud_kernel(
 
     int k = idm[i];
     if (k == 0) return;
+
+    bool unstable = (pcd[k - 1].weight < maxw);
+    if (unstable) return;
 
     vm[i] = pcd[k - 1].pos;
     nm[i] = make_float4(pcd[k - 1].normal);
@@ -181,6 +186,7 @@ void raycast(const cloud<surfel> pcd,
              image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T,
+             int timestamp,
              float maxw)
 {
     static image<uint32_t> zbuf;
@@ -201,6 +207,7 @@ void raycast(const cloud<surfel> pcd,
         grid_size.x = divup(K.width, block_size.x);
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), idm->cuda(), vm->cuda(), nm->cuda(), K);
+            pcd.cuda(), idm->cuda(), vm->cuda(), nm->cuda(),
+            K, timestamp, maxw);
     }
 }

@@ -68,6 +68,7 @@ void raycast(const cloud<surfel> pcd,
              image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T,
+             int timestamp,
              float maxw);
 
 void cleanup(cloud<surfel>* pcd,

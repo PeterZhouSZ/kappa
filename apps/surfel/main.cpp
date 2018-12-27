@@ -103,10 +103,9 @@ int main(int argc, char** argv)
             P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
                 num_iterations, dist_threshold, angle_threshold);
 
-        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
-        cleanup(&pcd, maxw, frame, period);
-        raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, maxw);
         float3 view = {P.m03, P.m13, P.m23};
+        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
+        raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, frame, maxw);
         render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
         frame++;
 
