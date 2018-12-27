@@ -93,7 +93,6 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        clock_t begin = clock();
         cam.read(&rdm);
         cam.read(&cm);
         raw_to_depth(rdm, &dm, cam.K, cutoff);

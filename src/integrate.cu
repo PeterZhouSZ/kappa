@@ -62,14 +62,15 @@ void match_surfel_kernel(
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = idm[i] - 1;
     mm[i] = 0;
-    if (vm[i].z == 0.0f || k > 0) return;
+    if (vm[i].z == 0.0f) return;
 
-    float3 vtt = T * vm[i];
-    float3 vt = pcd[k].pos;
-    if (fabs(vt.z - vtt.z) < 0.01f) return;
-
+    int k = idm[i] - 1;
+    if (k >= 0) {
+        float3 vtt = T * vm[i];
+        float3 vt = pcd[k].pos;
+        if (fabs(vt.z - vtt.z) < 0.01f) return;
+    }
     mm[i] = 1;
 }
 
