@@ -19,6 +19,7 @@ float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
 float maxw = 10.0f;
+float delta_r = 1.5f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8>     im;
@@ -104,7 +105,7 @@ int main(int argc, char** argv)
                             num_iterations, dist_threshold, angle_threshold);
 
         float3 view = {P.m03, P.m13, P.m23};
-        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame);
+        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
         raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, frame, maxw);
         render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
         frame++;

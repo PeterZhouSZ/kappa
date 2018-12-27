@@ -100,7 +100,7 @@ int main(int argc, char** argv)
 
         if (frame > 0)
             P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
-                num_iterations, dist_threshold, angle_threshold);
+                            num_iterations, dist_threshold, angle_threshold);
 
         integrate(&vol, dm, cam.K, P, mu, maxw);
         raycast(vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
