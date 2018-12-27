@@ -20,7 +20,6 @@ float near = 0.001f;
 float far = 4.0f;
 float maxw = 10.0f;
 float delta_r = 1.5f;
-float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8>     im;
 image<uint16_t> rdm;
@@ -104,6 +103,7 @@ int main(int argc, char** argv)
             P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
                             num_iterations, dist_threshold, angle_threshold);
 
+        float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
         integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
         cleanup(&pcd, maxw, frame, period);

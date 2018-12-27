@@ -17,16 +17,16 @@ void render_phong_light_kernel(
     int i = u + v * K.width;
     float3 p = vm[i];
     float3 n = make_float3(nm[i]);
-    float3 ambient = {0.1f, 0.1f, 0.1f};
+    float3 ambient = {0.2f, 0.2f, 0.2f};
     float3 diffuse = {0.6f, 0.5294f, 0.4566f};
     float3 specular = {0.3f, 0.3f, 0.3f};
     float shininess = 20.0f;
 
     float3 L = normalize(light - p);
     float3 V = normalize(view - p);
-    float3 R = normalize(2 * n * dot(n, L) - L);
+    float3 H = normalize(L + V);
     float3 color = ambient + diffuse * fmaxf(dot(n, L), 0.0f) +
-        specular * __powf(fmaxf(dot(R, V), 0.0f), shininess);
+        specular * __powf(fmaxf(dot(n, H), 0.0f), shininess);
     color = clamp(color, 0.0f, 1.0f) * 255.0f;
     im[i] = {(uint8_t)color.x, (uint8_t)color.y, (uint8_t)color.z};
 }
