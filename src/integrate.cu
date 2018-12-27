@@ -50,6 +50,7 @@ void integrate_volume_kernel(
 
 __global__
 void match_surfel_kernel(
+    cloud<surfel> pcd,
     image<float3> vm,
     image<uint32_t> idm,
     image<uint32_t> mm,
@@ -61,9 +62,14 @@ void match_surfel_kernel(
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = idm[i];
+    int k = idm[i] - 1;
     mm[i] = 0;
     if (vm[i].z == 0.0f || k > 0) return;
+
+    float3 vtt = T * vm[i];
+    float3 vt = pcd[k].pos;
+    if (fabs(vt.z - vtt.z) < 0.01f) return;
+
     mm[i] = 1;
 }
 
@@ -167,7 +173,7 @@ void integrate(cloud<surfel>* pcd,
     grid_size.y = divup(K.height, block_size.y);
 
     match_surfel_kernel<<<grid_size, block_size>>>(
-        vm.cuda(), idm.cuda(), mm.cuda(), K, T);
+        pcd->cuda(), vm.cuda(), idm.cuda(), mm.cuda(), K, T);
 
     int sum = prescan(mm.data, sm.data, K.width * K.height);
     update_index_kernel<<<grid_size, block_size>>>(
