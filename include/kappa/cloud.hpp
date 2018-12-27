@@ -38,12 +38,16 @@ void cloud<T>::alloc(int capacity, int device)
     this->capacity = capacity;
     this->size = 0;
     this->device = device;
+    size_t size = sizeof(T) * capacity;
     switch (this->device) {
+        case DEVICE_CPU:
+            data = (T*)malloc(size);
+            break;
         case DEVICE_CUDA:
-            CUDA_MALLOC_T(data, T, capacity);
+            cudaMalloc((void**)&data, size);
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_MALLOC_MAPPED_T(data, T, capacity);
+            cudaHostAlloc((void**)&data, size, cudaHostAllocMapped);
             break;
     }
 }
@@ -54,10 +58,10 @@ void cloud<T>::free()
 {
     switch (device) {
         case DEVICE_CUDA:
-            CUDA_FREE(data);
+            cudaFree(data);
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_FREE_MAPPED(data);
+            cudaFreeHost(data);
             break;
     }
     capacity = 0;
@@ -81,7 +85,7 @@ cloud<T> cloud<T>::cuda() const
             pcd.data = data;
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_MAP_PTR(pcd.data, data);
+            cudaHostGetDevicePointer(&pcd.data, data, 0);
             break;
     }
     return pcd;

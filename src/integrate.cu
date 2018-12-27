@@ -63,8 +63,7 @@ void match_surfel_kernel(
     int i = u + v * K.width;
     int k = idm[i];
     mm[i] = 0;
-    if (vm[i].z == 0.0f) return;
-    if (k > 0) return;
+    if (vm[i].z == 0.0f || k > 0) return;
     mm[i] = 1;
 }
 
@@ -81,7 +80,7 @@ void update_index_kernel(
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
     int i = u + v * K.width;
-    idm[i] = offset + mm[i] * sm[i];
+    idm[i] = mm[i] ? offset + sm[i] + 1 : idm[i];
 }
 
 
@@ -93,16 +92,15 @@ void integrate_cloud_kernel(
     image<uint32_t> idm,
     intrinsics K,
     mat4x4 T,
-    int timestamp,
-    float delta_r)
+    int timestamp)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    int k = idm[i];
-    if (vm[i].z == 0.0f) return;
+    int k = idm[i] - 1;
+    if (vm[i].z == 0.0f || k < 0) return;
 
     float sigma_r = 0.6f;
     float max_rad_dist = sqrtf(
@@ -124,8 +122,6 @@ void integrate_cloud_kernel(
 
     pcd[k].weight = wt + wtt;
     pcd[k].timestamp = timestamp;
-
-    if (rt > 0.0f && rtt > delta_r * rt) return;
     pcd[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
     pcd[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
     pcd[k].normal = normalize(pcd[k].normal);
@@ -156,8 +152,7 @@ void integrate(cloud<surfel>* pcd,
                const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T,
-               int timestamp,
-               float delta_r)
+               int timestamp)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);
@@ -175,7 +170,6 @@ void integrate(cloud<surfel>* pcd,
     update_index_kernel<<<grid_size, block_size>>>(
         idm.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(),
-        K, T, timestamp, delta_r);
+        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(), K, T, timestamp);
     pcd->size += sum;
 }

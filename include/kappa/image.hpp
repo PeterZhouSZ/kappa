@@ -55,10 +55,10 @@ void image<T>::alloc(int width, int height, int device)
             data = (T*)malloc(size);
             break;
         case DEVICE_CUDA:
-            CUDA_MALLOC(data, size);
+            cudaMalloc((void**)&data, size);
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_MALLOC_MAPPED(data, size);
+            cudaHostAlloc((void**)&data, size, cudaHostAllocMapped);
             break;
     }
 }
@@ -72,10 +72,10 @@ void image<T>::free()
             ::free(data);
             break;
         case DEVICE_CUDA:
-            CUDA_FREE(data);
+            cudaFree(data);
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_FREE_MAPPED(data);
+            cudaFreeHost(data);
             break;
     }
     width = 0;
@@ -94,7 +94,7 @@ void image<T>::clear(uint8_t c)
             break;
         case DEVICE_CUDA:
         case DEVICE_CUDA_MAPPED:
-            CUDA_MEMSET(data, c, size);
+            cudaMemset(data, c, size);
             break;
     }
 }
@@ -115,7 +115,7 @@ image<T> image<T>::cuda() const
             im.data = data;
             break;
         case DEVICE_CUDA_MAPPED:
-            CUDA_MAP_PTR(im.data, data);
+            cudaHostGetDevicePointer(&im.data, data, 0);
             break;
     }
     return im;

@@ -104,8 +104,7 @@ void volume<T>::alloc(int3 shape, int device)
         case DEVICE_CPU:
             break;
         case DEVICE_CUDA:
-            CUDA_MALLOC(data, size);
-            CUDA_MEMSET(data, 0, size);
+            cudaMalloc((void**)&data, size);
         case DEVICE_CUDA_MAPPED:
             break;
     }
@@ -119,7 +118,7 @@ void volume<T>::free()
         case DEVICE_CPU:
             break;
         case DEVICE_CUDA:
-            CUDA_FREE(data);
+            cudaFree(data);
             break;
         case DEVICE_CUDA_MAPPED:
             break;

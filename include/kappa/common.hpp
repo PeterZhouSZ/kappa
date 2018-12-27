@@ -5,9 +5,6 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 
-#define ZBUFFER_SCALE 100000
-#define Z_OFFSET 10000000
-
 #ifdef __NVCC__
 #define GPU_CODE __device__
 #define CPU_GPU_CODE __host__ __device__
@@ -16,51 +13,8 @@
 #define CPU_GPU_CODE
 #endif
 
-#define CUDA_MALLOC(p, n)                       \
-    do {                                        \
-        cudaMalloc((void**)&p, n);              \
-    } while (0)
-
-#define CUDA_MALLOC_T(p, T, n)                  \
-    do {                                        \
-        cudaMalloc((void**)&p, sizeof(T) * n);  \
-    } while (0)
-
-#define CUDA_MALLOC_MAPPED(p, n)                                \
-    do {                                                        \
-        cudaHostAlloc((void**)&p, n, cudaHostAllocMapped);      \
-    } while (0)
-
-#define CUDA_MALLOC_MAPPED_T(p, T, n)                                   \
-    do {                                                                \
-        cudaHostAlloc((void**)&p, sizeof(T) * n, cudaHostAllocMapped);  \
-    } while (0)
-
-#define CUDA_FREE(p)                            \
-    do {                                        \
-        cudaFree(p);                            \
-    } while (0)
-
-#define CUDA_FREE_MAPPED(p)                     \
-    do {                                        \
-        cudaFreeHost(p);                        \
-    } while (0)
-
-#define CUDA_MAP_PTR(p, data)                   \
-    do {                                        \
-        cudaHostGetDevicePointer(&p, data, 0);  \
-    } while (0)
-
-#define CUDA_MEMSET(p, c, n)                    \
-    do {                                        \
-        cudaMemset(p, c, n);                    \
-    } while (0)
-
-#define CUDA_MEMCPY_DEVICE_TO_HOST(dst, src, n)                 \
-    do {                                                        \
-        cudaMemcpy(dst, src, n, cudaMemcpyDeviceToHost);        \
-    } while (0)
-
+#define ZBUFFER_SCALE 100000
+#define Z_OFFSET 10000000
 
 enum {
     DEVICE_CPU,

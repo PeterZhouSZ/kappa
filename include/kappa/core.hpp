@@ -59,8 +59,7 @@ void integrate(cloud<surfel>* pcd,
                const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T,
-               int timestamp,
-               float delta_r);
+               int timestamp);
 
 void raycast(const cloud<surfel> pcd,
              image<float3>* vm,

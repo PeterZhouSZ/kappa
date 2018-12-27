@@ -132,12 +132,9 @@ void vertex_to_normal_radius_kernel(
         normal = normalize(cross(dy, dx));
     }
 
-    float r = 0.0f;
-    if (length(normal) > 0.0f) {
-        float d = vm[i].z;
-        float f = 0.5f * (K.fx + K.fy);
-        r = sqrtf(2.0f) * d / f;
-    }
+    float d = vm[i].z;
+    float f = 0.5f * (K.fx + K.fy);
+    float r = sqrtf(2.0f) * d / f;
 
     nm[i].x = normal.x;
     nm[i].y = normal.y;
@@ -156,6 +153,17 @@ void reset_volume_kernel(volume<voxel> vol)
     int i = x + y * vol.shape.x + z * vol.shape.x * vol.shape.y;
     vol[i].tsdf = 1.0f;
     vol[i].weight = 0.0f;
+}
+
+
+__global__
+void reset_cloud_kernel(cloud<surfel> pcd)
+{
+    int i = threadIdx.x + blockIdx.x * blockDim.x;
+    if (i >= pcd.capacity) return;
+    pcd[i].radius = 1.0f;
+    pcd[i].weight = 0.0f;
+    pcd[i].timestamp = 0;
 }
 
 
@@ -240,4 +248,12 @@ void reset(volume<voxel>* vol)
     grid_size.y = divup(vol->shape.y, block_size.y);
     grid_size.z = divup(vol->shape.z, block_size.z);
     reset_volume_kernel<<<grid_size, block_size>>>(vol->cuda());
+}
+
+
+void reset(cloud<surfel>* pcd)
+{
+    unsigned int block_size = 512;
+    unsigned int grid_size = divup(pcd->capacity, block_size);
+    reset_cloud_kernel<<<grid_size, block_size>>>(pcd->cuda());
 }
