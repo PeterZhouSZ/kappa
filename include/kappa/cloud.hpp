@@ -22,6 +22,7 @@ struct cloud {
     void alloc(int capacity, int device);
     void free();
 
+    cloud<T> clone() const;
     cloud<T> cpu() const;
     cloud<T> cuda() const;
 
@@ -67,6 +68,23 @@ void cloud<T>::free()
     capacity = 0;
     size = 0;
     data = nullptr;
+}
+
+
+template <typename T>
+cloud<T> cloud<T>::clone() const
+{
+    cloud<T> pcd;
+    pcd.alloc(capacity, device);
+    pcd.size = size;
+    switch (device) {
+        case DEVICE_CPU:
+        case DEVICE_CUDA_MAPPED:
+        case DEVICE_CUDA:
+            cudaMemcpy(pcd.data, data, sizeof(T) * size, cudaMemcpyDeviceToDevice);
+            break;
+    }
+    return pcd;
 }
 
 

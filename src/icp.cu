@@ -195,8 +195,8 @@ mat4x4 icp_p2p_se3(
             reduce_threads * sizeof(JtJse3)>>>(JTJ.cuda(), Axb.cuda());
         cudaDeviceSynchronize();
 
-        for (int i = 1; i < reduce_size; ++i)
-            Axb[0] += Axb[i];
+        for (int k = 1; k < reduce_size; ++k)
+            Axb[0] += Axb[k];
         float error = Axb[0].error / Axb[0].weight;
         if (isnan(error) || error > last_error) break;
 

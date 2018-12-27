@@ -93,6 +93,7 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
+        clock_t begin = clock();
         cam.read(&rdm);
         cam.read(&cm);
         raw_to_depth(rdm, &dm, cam.K, cutoff);
@@ -106,6 +107,7 @@ int main(int argc, char** argv)
 
         float3 view = {P.m03, P.m13, P.m23};
         integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
+        cleanup(&pcd, maxw, frame, period);
         raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, frame, maxw);
         render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
         frame++;

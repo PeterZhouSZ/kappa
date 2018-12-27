@@ -76,7 +76,8 @@ void raycast_z_buffer_kernel(
     int r = pcd[k].radius * f / q.z + 0.5f;
     int r2 = r * r; // radius squared
 
-    uint32_t z = q.z * ZBUFFER_SCALE;
+    bool unstable = (pcd[k].weight < maxw);
+    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -115,7 +116,8 @@ void raycast_index_kernel(
     int r = pcd[k].radius * f / q.z + 0.5f;
     int r2 = r * r; // radius squared
 
-    uint32_t z = q.z * ZBUFFER_SCALE;
+    bool unstable = (pcd[k].weight < maxw);
+    uint32_t z = q.z * ZBUFFER_SCALE + unstable * Z_OFFSET;
     for (int dy = -r; dy <= r; ++dy) {
         for (int dx = -r; dx <= r; ++dx) {
             int x = u + dx;
@@ -149,11 +151,11 @@ void raycast_cloud_kernel(
     vm[i] = {0.0f, 0.0f, 0.0f};
     nm[i] = {0.0f, 0.0f, 0.0f};
 
-    int k = idm[i];
-    if (k == 0) return;
+    int k = idm[i] - 1;
+    if (k < 0) return;
 
-    vm[i] = pcd[k - 1].pos;
-    nm[i] = make_float4(pcd[k - 1].normal);
+    vm[i] = pcd[k].pos;
+    nm[i] = make_float4(pcd[k].normal);
 }
 
 
