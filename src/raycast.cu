@@ -136,9 +136,10 @@ void raycast_index_kernel(
 __global__
 void raycast_cloud_kernel(
     cloud<surfel> pcd,
-    image<uint32_t> idm,
     image<float3> vm,
     image<float4> nm,
+    image<float3> cm,
+    image<uint32_t> idm,
     intrinsics K,
     int timestamp,
     float maxw,
@@ -151,14 +152,17 @@ void raycast_cloud_kernel(
     int i = u + v * K.width;
     vm[i] = {0.0f, 0.0f, 0.0f};
     nm[i] = {0.0f, 0.0f, 0.0f};
+    cm[i] = {0.0f, 0.0f, 0.0f};
 
     int k = idm[i] - 1;
     if (k < 0) return;
     if (pcd[k].weight < maxw * 0.5f) return;
     if (pcd[k].pos.z > cutoff) return;
 
+    float3 n = pcd[k].normal;
     vm[i] = pcd[k].pos;
-    nm[i] = make_float4(pcd[k].normal);
+    nm[i] = {n.x, n.y, n.z, pcd[k].radius};
+    cm[i] = pcd[k].color;
 }
 
 
@@ -183,6 +187,7 @@ void raycast(const volume<voxel> vol,
 void raycast(const cloud<surfel> pcd,
              image<float3>* vm,
              image<float4>* nm,
+             image<float3>* cm,
              image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T,
@@ -208,7 +213,7 @@ void raycast(const cloud<surfel> pcd,
         grid_size.x = divup(K.width, block_size.x);
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(
-            pcd.cuda(), idm->cuda(), vm->cuda(), nm->cuda(),
-            K, timestamp, maxw, cutoff);
+            pcd.cuda(), vm->cuda(), nm->cuda(), cm->cuda(),
+            idm->cuda(), K, timestamp, maxw, cutoff);
     }
 }

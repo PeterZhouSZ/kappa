@@ -11,6 +11,11 @@ void raw_to_depth(
     intrinsics K,
     float cutoff);
 
+void raw_to_color(
+    const image<rgb8> rcm,
+    image<float3>* cm,
+    intrinsics K);
+
 void depth_to_vertex(
     const image<float> dm,
     image<float3>* vm,
@@ -56,6 +61,7 @@ void reset(cloud<surfel>* pcd);
 void integrate(cloud<surfel>* pcd,
                const image<float3> vm,
                const image<float4> nm,
+               const image<float3> cm,
                const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T,
@@ -65,6 +71,7 @@ void integrate(cloud<surfel>* pcd,
 void raycast(const cloud<surfel> pcd,
              image<float3>* vm,
              image<float4>* nm,
+             image<float3>* cm,
              image<uint32_t>* idm,
              intrinsics K,
              mat4x4 T,
@@ -75,7 +82,7 @@ void raycast(const cloud<surfel> pcd,
 void cleanup(cloud<surfel>* pcd,
              float maxw,
              int timestamp,
-             int period);
+             int delta_t);
 
 mat4x4 icp_p2p_se3(
     const image<float3> vm0,
@@ -91,6 +98,15 @@ mat4x4 icp_p2p_se3(
 void render_phong_light(
     const image<float3> vm,
     const image<float4> nm,
+    image<rgb8>* im,
+    intrinsics K,
+    float3 light,
+    float3 view);
+
+void render_phong_light(
+    const image<float3> vm,
+    const image<float4> nm,
+    const image<float3> cm,
     image<rgb8>* im,
     intrinsics K,
     float3 light,

@@ -7,13 +7,13 @@ void mark_stable_surfel_kernel(
     uint32_t* mask,
     float maxw,
     int timestamp,
-    int period)
+    int delta_t)
 {
     int k = threadIdx.x + blockIdx.x * blockDim.x;
     if (k >= pcd.size) return;
     bool unstable = (pcd[k].weight < maxw);
-    int duration = timestamp - pcd[k].timestamp;
-    if (unstable && duration > period) mask[k] = 0;
+    int age = timestamp - pcd[k].timestamp;
+    if (unstable && age > delta_t) mask[k] = 0;
     else mask[k] = 1;
 }
 
@@ -39,7 +39,7 @@ void remove_unstable_surfel_kernel(
 void cleanup(cloud<surfel>* pcd,
              float maxw,
              int timestamp,
-             int period)
+             int delta_t)
 {
     static uint32_t* mask = nullptr;
     static uint32_t* sum = nullptr;
@@ -49,7 +49,7 @@ void cleanup(cloud<surfel>* pcd,
     uint32_t block_size = 512;
     uint32_t grid_size = divup(pcd->size, block_size);
     mark_stable_surfel_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), mask, maxw, timestamp, period);
+        pcd->cuda(), mask, maxw, timestamp, delta_t);
 
     int size = prescan(mask, sum, pcd->size);
     cloud<surfel> other = pcd->clone();

@@ -96,6 +96,7 @@ void integrate_cloud_kernel(
     cloud<surfel> pcd,
     image<float3> vm,
     image<float4> nm,
+    image<float3> cm,
     image<uint32_t> idm,
     intrinsics K,
     mat4x4 T,
@@ -121,20 +122,25 @@ void integrate_cloud_kernel(
     float3 normal = make_float3(nm[i]);
     float3 vtt = T * vm[i];
     float3 ntt = rotate(T, normal);
+    float3 ctt = cm[i];
     float  rtt = nm[i].w;
     float  wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
     float3 vt = pcd[k].pos;
     float3 nt = pcd[k].normal;
+    float3 ct = pcd[k].color;
     float  rt = pcd[k].radius;
     float  wt = pcd[k].weight;
 
     pcd[k].weight = wt + wtt;
     pcd[k].timestamp = timestamp;
     if (rtt > rt * delta_r) return;
-    pcd[k].pos    = (vt * wt + vtt * wtt) / (wt + wtt);
-    pcd[k].normal = (nt * wt + ntt * wtt) / (wt + wtt);
+    pcd[k].pos    = (vt * wt + vtt * wtt) / pcd[k].weight;
+    pcd[k].normal = (nt * wt + ntt * wtt) / pcd[k].weight;
+    pcd[k].color  = (ct * wt + ctt * wtt) / pcd[k].weight;
+    pcd[k].radius = (rt * wt + rtt * wtt) / pcd[k].weight;
+
     pcd[k].normal = normalize(pcd[k].normal);
-    pcd[k].radius = (rt * wt + rtt * wtt) / (wt + wtt);
+    pcd[k].color  = clamp(pcd[k].color, 0.0f, 1.0f);
 }
 
 
@@ -158,6 +164,7 @@ void integrate(volume<voxel>* vol,
 void integrate(cloud<surfel>* pcd,
                const image<float3> vm,
                const image<float4> nm,
+               const image<float3> cm,
                const image<uint32_t> idm,
                intrinsics K,
                mat4x4 T,
@@ -180,7 +187,7 @@ void integrate(cloud<surfel>* pcd,
     update_index_kernel<<<grid_size, block_size>>>(
         idm.cuda(), mm.cuda(), sm.cuda(), K, pcd->size);
     integrate_cloud_kernel<<<grid_size, block_size>>>(
-        pcd->cuda(), vm.cuda(), nm.cuda(), idm.cuda(),
-        K, T, timestamp, delta_r);
+        pcd->cuda(), vm.cuda(), nm.cuda(), cm.cuda(),
+        idm.cuda(), K, T, timestamp, delta_r);
     pcd->size += sum;
 }

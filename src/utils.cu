@@ -63,6 +63,24 @@ void raw_to_depth_kernel(
 
 
 __global__
+void raw_to_color_kernel(
+    image<rgb8> rcm,
+    image<float3> cm,
+    intrinsics K)
+{
+    int u = threadIdx.x + blockIdx.x * blockDim.x;
+    int v = threadIdx.y + blockIdx.y * blockDim.y;
+    if (u >= K.width || v >= K.height) return;
+
+    int i = u + v * K.width;
+    float r = rcm[i].r / 255.0f;
+    float g = rcm[i].g / 255.0f;
+    float b = rcm[i].b / 255.0f;
+    cm[i] = {r, g, b};
+}
+
+
+__global__
 void depth_to_vertex_kernel(
     image<float> dm,
     image<float3> vm,
@@ -179,6 +197,20 @@ void raw_to_depth(
     grid_size.y = divup(K.height, block_size.y);
     raw_to_depth_kernel<<<grid_size, block_size>>>(
         rdm.cuda(), dm->cuda(), K, cutoff);
+}
+
+
+void raw_to_color(
+    const image<rgb8> rcm,
+    image<float3>* cm,
+    intrinsics K)
+{
+    dim3 block_size(16, 16);
+    dim3 grid_size;
+    grid_size.x = divup(K.width,  block_size.x);
+    grid_size.y = divup(K.height, block_size.y);
+    raw_to_color_kernel<<<grid_size, block_size>>>(
+        rcm.cuda(), cm->cuda(), K);
 }
 
 

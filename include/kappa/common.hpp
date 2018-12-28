@@ -49,6 +49,7 @@ struct voxel {
 struct surfel {
     float3 pos;
     float3 normal;
+    float3 color;
     float radius;
     float weight;
     int timestamp;
