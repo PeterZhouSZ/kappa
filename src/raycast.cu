@@ -141,7 +141,8 @@ void raycast_cloud_kernel(
     image<float4> nm,
     intrinsics K,
     int timestamp,
-    float maxw)
+    float maxw,
+    float cutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
     int v = threadIdx.y + blockIdx.y * blockDim.y;
@@ -154,6 +155,7 @@ void raycast_cloud_kernel(
     int k = idm[i] - 1;
     if (k < 0) return;
     if (pcd[k].weight < maxw * 0.5f) return;
+    if (pcd[k].pos.z > cutoff) return;
 
     vm[i] = pcd[k].pos;
     nm[i] = make_float4(pcd[k].normal);
@@ -185,7 +187,8 @@ void raycast(const cloud<surfel> pcd,
              intrinsics K,
              mat4x4 T,
              int timestamp,
-             float maxw)
+             float maxw,
+             float cutoff)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);
@@ -206,6 +209,6 @@ void raycast(const cloud<surfel> pcd,
         grid_size.y = divup(K.height, block_size.y);
         raycast_cloud_kernel<<<grid_size, block_size>>>(
             pcd.cuda(), idm->cuda(), vm->cuda(), nm->cuda(),
-            K, timestamp, maxw);
+            K, timestamp, maxw, cutoff);
     }
 }

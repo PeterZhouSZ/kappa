@@ -69,7 +69,8 @@ void raycast(const cloud<surfel> pcd,
              intrinsics K,
              mat4x4 T,
              int timestamp,
-             float maxw);
+             float maxw,
+             float cutoff);
 
 void cleanup(cloud<surfel>* pcd,
              float maxw,

@@ -14,8 +14,8 @@ int period = 20;
 float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float d_sigma = 0.1f;
-float r_sigma = 4.0f;
-float cutoff = 4.0f;
+float r_sigma = 3.0f;
+float cutoff = 3.0f;
 float near = 0.001f;
 float far = 4.0f;
 float maxw = 10.0f;
@@ -25,7 +25,7 @@ image<rgb8>     im;
 image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8>     cm;
-image<uint32_t> idm;
+image<uint32_t> idm[levels];
 image<float>    dm0[levels];
 image<float3>   vm0[levels];
 image<float3>   vm1[levels];
@@ -33,7 +33,8 @@ image<float4>   nm0[levels];
 image<float4>   nm1[levels];
 
 cloud<surfel> pcd;
-camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
+camera cam{"/run/media/hieu/storage/scenenn/011/011.oni"};
+intrinsics K[levels];
 mat4x4 P;
 
 
@@ -41,15 +42,20 @@ static void prealloc()
 {
     im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
     dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    idm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     for (int level = 0; level < levels; ++level) {
-        int width = cam.K.width >> level;
-        int height = cam.K.height >> level;
-        dm0[level].resize(width, height, DEVICE_CUDA);
-        vm0[level].resize(width, height, DEVICE_CUDA);
-        nm0[level].resize(width, height, DEVICE_CUDA);
-        vm1[level].resize(width, height, DEVICE_CUDA);
-        nm1[level].resize(width, height, DEVICE_CUDA);
+        K[level].width  = cam.K.width  >> level;
+        K[level].height = cam.K.height >> level;
+        K[level].cx = cam.K.cx * powf(0.5f, level);
+        K[level].cy = cam.K.cy * powf(0.5f, level);
+        K[level].fx = cam.K.fx * powf(0.5f, level);
+        K[level].fy = cam.K.fy * powf(0.5f, level);
+        dm0[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        vm0[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        nm0[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        vm1[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        nm1[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        idm[level].resize(K[level].width, K[level].height, DEVICE_CUDA);
+        idm[level].clear();
     }
 }
 
@@ -60,7 +66,7 @@ int main(int argc, char** argv)
 
     if (!glfwInit()) {
         fprintf(stdout, "[GLFW] failed to init!\n");
-        exit(1);
+        return 0;
     }
     GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
@@ -75,12 +81,11 @@ int main(int argc, char** argv)
     cam.K.height = 480;
     cam.start();
 
-    int size = 0x1000000;
-    pcd.alloc(size, DEVICE_CUDA);
+    int capacity = 0x1000000;
+    pcd.alloc(capacity, DEVICE_CUDA);
     reset(&pcd);
 
     prealloc();
-    idm.clear();
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -102,15 +107,28 @@ int main(int argc, char** argv)
         if (frame > 0)
             P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
                             num_iterations, dist_threshold, angle_threshold);
+        // fscanf(fp, "%*d %*d %*d\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n"
+        //        "%f %f %f %f\n",
+        //        &P.m00, &P.m01, &P.m02, &P.m03,
+        //        &P.m10, &P.m11, &P.m12, &P.m13,
+        //        &P.m20, &P.m21, &P.m22, &P.m23,
+        //        &P.m30, &P.m31, &P.m32, &P.m33);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
-        integrate(&pcd, vm0[0], nm0[0], idm, cam.K, P, frame, delta_r);
+        integrate(&pcd, vm0[0], nm0[0], idm[0], cam.K, P, frame, delta_r);
         cleanup(&pcd, maxw, frame, period);
-        raycast(pcd, &vm1[0], &nm1[0], &idm, cam.K, P, frame, maxw);
-        render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
+
+        for (int level = 0; level < levels; ++level)
+            raycast(pcd, &vm1[level], &nm1[level], &idm[level],
+                    K[level], P, frame, maxw, cutoff);
+        render_phong_light(vm1[0], nm1[0], &im, K[0], light, view);
         frame++;
 
+        printf("%d %d\n", pcd.size, pcd.capacity);
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
         glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
