@@ -16,6 +16,7 @@ camera::camera(const char* uri)
         status = depth.setMirroringEnabled(false);
     if (color.isPropertySupported(STREAM_PROPERTY_MIRRORING))
         status = color.setMirroringEnabled(false);
+    status = device.setDepthColorSyncEnabled(true);
     assert(status == STATUS_OK);
 }
 

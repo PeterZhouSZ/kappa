@@ -18,7 +18,7 @@ void render_phong_light_kernel(
     float3 p = vm[i];
     float3 n = make_float3(nm[i]);
     float3 ambient = {0.2f, 0.2f, 0.2f};
-    float3 diffuse = {0.6f, 0.5294f, 0.4566f};
+    float3 diffuse = {1.0f, 0.706f, 0.0f};
     float3 specular = {0.2f, 0.2f, 0.2f};
     float shininess = 20.0f;
 
@@ -51,7 +51,7 @@ void render_phong_light_kernel(
     float3 n = make_float3(nm[i]);
     float3 ambient = {0.2f, 0.2f, 0.2f};
     float3 diffuse = cm[i];
-    float3 specular = {0.3f, 0.3f, 0.3f};
+    float3 specular = {0.2f, 0.2f, 0.2f};
     float shininess = 20.0f;
 
     float3 L = normalize(light - p);
