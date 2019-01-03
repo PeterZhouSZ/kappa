@@ -7,7 +7,6 @@
 #include <kappa/core.hpp>
 
 
-constexpr int levels = 3;
 int frame = 0;
 int num_iterations = 10;
 float dist_threshold = 0.05f;
@@ -25,11 +24,11 @@ image<rgb8>     im;
 image<uint16_t> rdm;
 image<float>    dm;
 image<rgb8>     cm;
-image<float>    dm0[levels];
-image<float3>   vm0[levels];
-image<float3>   vm1[levels];
-image<float4>   nm0[levels];
-image<float4>   nm1[levels];
+image<float>    dm0;
+image<float3>   vm0;
+image<float3>   vm1;
+image<float4>   nm0;
+image<float4>   nm1;
 
 volume<voxel> vol;
 camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
@@ -40,15 +39,11 @@ static void prealloc()
 {
     im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
     dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    for (int level = 0; level < levels; ++level) {
-        int width = cam.K.width >> level;
-        int height = cam.K.height >> level;
-        dm0[level].resize(width, height, DEVICE_CUDA);
-        vm0[level].resize(width, height, DEVICE_CUDA);
-        nm0[level].resize(width, height, DEVICE_CUDA);
-        vm1[level].resize(width, height, DEVICE_CUDA);
-        nm1[level].resize(width, height, DEVICE_CUDA);
-    }
+    dm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    vm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    nm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    vm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    nm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
 }
 
 
@@ -94,18 +89,20 @@ int main(int argc, char** argv)
         cam.read(&rdm);
         cam.read(&cm);
         raw_to_depth(rdm, &dm, cam.K, cutoff);
-        depth_bilateral(dm, &dm0[0], cam.K, d_sigma, r_sigma);
-        depth_to_vertex(dm0[0], &vm0[0], cam.K);
-        vertex_to_normal(vm0[0], &nm0[0], cam.K);
+        depth_bilateral(dm, &dm0, cam.K, d_sigma, r_sigma);
+        depth_to_vertex(dm0, &vm0, cam.K);
+        vertex_to_normal(vm0, &nm0, cam.K);
 
         if (frame > 0)
-            P = icp_p2p_se3(vm0[0], nm0[0], vm1[0], nm1[0], cam.K, P,
-                            num_iterations, dist_threshold, angle_threshold);
+            P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
+                            dist_threshold, angle_threshold);
 
         integrate(&vol, dm, cam.K, P, mu, maxw);
-        raycast(vol, &vm1[0], &nm1[0], cam.K, P, mu, near, far);
+        raycast(vol, &vm1, &nm1, cam.K, P, mu, near, far);
+
+        float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(vm1[0], nm1[0], &im, cam.K, light, view);
+        render_phong_light(vm1, nm1, &im, cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);

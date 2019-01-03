@@ -37,7 +37,12 @@ struct image {
 template <typename T>
 void image<T>::resize(int width, int height, int device)
 {
-    if (this->width == width && this->height == height) return;
+    int size = this->width * this->height;
+    if (size > width * height) {
+        this->width = width;
+        this->height = height;
+        return;
+    }
     free();
     alloc(width, height, device);
 }

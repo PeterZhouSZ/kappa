@@ -223,7 +223,7 @@ void depth_bilateral(
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
-    grid_size.x = divup(K.width, block_size.x);
+    grid_size.x = divup(K.width,  block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     depth_bilateral_kernel<<<grid_size, block_size>>>(
         dm0.cuda(), dm1->cuda(), K, d_sigma, r_sigma);
