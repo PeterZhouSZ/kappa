@@ -9,6 +9,7 @@ void raw_to_depth(
     const image<uint16_t> rdm,
     image<float>* dm,
     intrinsics K,
+    float factor,
     float cutoff);
 
 void raw_to_color(

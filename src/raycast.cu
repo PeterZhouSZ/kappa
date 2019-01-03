@@ -156,8 +156,8 @@ void raycast_cloud_kernel(
 
     int k = idm[i] - 1;
     if (k < 0) return;
-    if (pcd[k].weight < maxw * 0.5f) return;
     if (pcd[k].pos.z > cutoff) return;
+    if (pcd[k].weight < maxw * 0.5f) return;
 
     float3 n = pcd[k].normal;
     vm[i] = pcd[k].pos;

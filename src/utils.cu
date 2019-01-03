@@ -49,6 +49,7 @@ void raw_to_depth_kernel(
     image<uint16_t> rdm,
     image<float> dm,
     intrinsics K,
+    float factor,
     float cutoff)
 {
     int u = threadIdx.x + blockIdx.x * blockDim.x;
@@ -56,7 +57,7 @@ void raw_to_depth_kernel(
     if (u >= K.width || v >= K.height) return;
 
     int i = u + v * K.width;
-    float d = rdm[i] * 0.001f;
+    float d = rdm[i] * factor;
     if (d > cutoff) d = 0.0f;
     dm[i] = d;
 }
@@ -189,6 +190,7 @@ void raw_to_depth(
     const image<uint16_t> rdm,
     image<float>* dm,
     intrinsics K,
+    float factor,
     float cutoff)
 {
     dim3 block_size(16, 16);
@@ -196,7 +198,7 @@ void raw_to_depth(
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     raw_to_depth_kernel<<<grid_size, block_size>>>(
-        rdm.cuda(), dm->cuda(), K, cutoff);
+        rdm.cuda(), dm->cuda(), K, factor, cutoff);
 }
 
 

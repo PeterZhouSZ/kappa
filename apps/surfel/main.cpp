@@ -14,6 +14,7 @@ float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float d_sigma = 0.1f;
 float r_sigma = 3.0f;
+float factor = 0.001f;
 float cutoff = 3.0f;
 float near = 0.001f;
 float far = 4.0f;
@@ -93,7 +94,7 @@ int main(int argc, char** argv)
 
         cam.read(&rdm);
         cam.read(&rcm);
-        raw_to_depth(rdm, &dm, cam.K, cutoff);
+        raw_to_depth(rdm, &dm, cam.K, factor, cutoff);
         raw_to_color(rcm, &cm0, cam.K);
         depth_bilateral(dm, &dm0, cam.K, d_sigma, r_sigma);
         depth_to_vertex(dm0, &vm0, cam.K);

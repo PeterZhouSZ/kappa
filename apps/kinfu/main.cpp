@@ -18,6 +18,7 @@ float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
 float mu = 0.1f;
+float factor = 0.001f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8>     im;
@@ -91,7 +92,7 @@ int main(int argc, char** argv)
 
         cam.read(&rdm);
         cam.read(&rcm);
-        raw_to_depth(rdm, &dm, cam.K, cutoff);
+        raw_to_depth(rdm, &dm, cam.K, factor, cutoff);
         raw_to_color(rcm, &cm0, cam.K);
         depth_bilateral(dm, &dm0, cam.K, d_sigma, r_sigma);
         depth_to_vertex(dm0, &vm0, cam.K);
