@@ -42,6 +42,7 @@ void reset(volume<voxel>* vol);
 
 void integrate(volume<voxel>* vol,
                const image<float> dm,
+               const image<float3> cm,
                intrinsics K,
                mat4x4 T,
                float mu,

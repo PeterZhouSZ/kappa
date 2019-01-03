@@ -22,13 +22,15 @@ float3 light = {0.0f, 0.0f, 0.0f};
 
 image<rgb8>     im;
 image<uint16_t> rdm;
+image<rgb8>     rcm;
 image<float>    dm;
-image<rgb8>     cm;
 image<float>    dm0;
 image<float3>   vm0;
-image<float3>   vm1;
 image<float4>   nm0;
+image<float3>   cm0;
+image<float3>   vm1;
 image<float4>   nm1;
+image<float3>   cm1;
 
 volume<voxel> vol;
 camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
@@ -42,6 +44,7 @@ static void prealloc()
     dm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     vm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     nm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    cm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     vm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
     nm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
 }
@@ -87,8 +90,9 @@ int main(int argc, char** argv)
         glOrtho(0, 640, 480, 0, -1 , 1);
 
         cam.read(&rdm);
-        cam.read(&cm);
+        cam.read(&rcm);
         raw_to_depth(rdm, &dm, cam.K, cutoff);
+        raw_to_color(rcm, &cm0, cam.K);
         depth_bilateral(dm, &dm0, cam.K, d_sigma, r_sigma);
         depth_to_vertex(dm0, &vm0, cam.K);
         vertex_to_normal(vm0, &nm0, cam.K);
@@ -97,7 +101,7 @@ int main(int argc, char** argv)
             P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
                             dist_threshold, angle_threshold);
 
-        integrate(&vol, dm, cam.K, P, mu, maxw);
+        integrate(&vol, dm, cm0, cam.K, P, mu, maxw);
         raycast(vol, &vm1, &nm1, cam.K, P, mu, near, far);
 
         float3 light = {P.m03, P.m13, P.m23};

@@ -41,9 +41,9 @@ enum {
 struct rgb8 { uint8_t r, g, b; };
 
 struct voxel {
-    float tsdf;
-    float weight;
-    rgb8  color;
+    float  tsdf;
+    float  weight;
+    float3 color;
 };
 
 struct surfel {

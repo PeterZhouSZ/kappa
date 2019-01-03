@@ -5,6 +5,7 @@ __global__
 void integrate_volume_kernel(
     volume<voxel> vol,
     image<float> dm,
+    image<float3> cm,
     intrinsics K,
     mat4x4 T,
     float mu,
@@ -39,11 +40,15 @@ void integrate_volume_kernel(
     float rad_dist = length(uv) / max_rad_dist;
 
     int i = x + y * vol.shape.x + z * vol.shape.x * vol.shape.y;
-    float ftt = fminf(1.0f, dist / mu);
-    float wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
-    float ft  = vol[i].tsdf;
-    float wt  = vol[i].weight;
-    vol[i].tsdf = (ft * wt + ftt * wtt) / (wt + wtt);
+    float  ftt = fminf(1.0f, dist / mu);
+    float  wtt = __expf(rad_dist * rad_dist * inv_r_sigma2);
+    float3 ctt = cm[u + v * K.width];
+    float  ft  = vol[i].tsdf;
+    float  wt  = vol[i].weight;
+    float3 ct  = vol[i].color;
+
+    vol[i].tsdf   = (ft * wt + ftt * wtt) / (wt + wtt);
+    vol[i].color  = (ct * wt + ctt * wtt) / (wt + wtt);
     vol[i].weight = fminf(wt + wtt, maxw);
 }
 
@@ -146,6 +151,7 @@ void integrate_cloud_kernel(
 
 void integrate(volume<voxel>* vol,
                const image<float> dm,
+               const image<float3> cm,
                intrinsics K,
                mat4x4 T,
                float mu,
@@ -157,7 +163,7 @@ void integrate(volume<voxel>* vol,
     grid_size.y = divup(vol->shape.y, block_size.y);
     grid_size.z = divup(vol->shape.z, block_size.z);
     integrate_volume_kernel<<<grid_size, block_size>>>(
-        vol->cuda(), dm.cuda(), K, T.inverse(), mu, maxw);
+        vol->cuda(), dm.cuda(), cm.cuda(), K, T.inverse(), mu, maxw);
 }
 
 

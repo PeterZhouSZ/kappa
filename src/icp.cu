@@ -107,8 +107,8 @@ static Eigen::Matrix3f rodrigues(float3 w)
 
         Eigen::Matrix3f G;
         G << 0.0f, -w.z,  w.y,
-            w.z, 0.0f, -w.x,
-            -w.y,  w.x, 0.0f;
+              w.z, 0.0f, -w.x,
+             -w.y,  w.x, 0.0f;
         R = I + inv_theta * s * G
             + (1 - c) * inv_theta * inv_theta * G * G;
     }
