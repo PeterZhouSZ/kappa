@@ -78,7 +78,7 @@ int main(int argc, char** argv)
 
     int capacity = 0x1000000;
     pcd.alloc(capacity, DEVICE_CUDA);
-    reset(&pcd);
+    reset_cloud(&pcd);
 
     prealloc();
     while (!glfwWindowShouldClose(win)) {
@@ -104,9 +104,10 @@ int main(int argc, char** argv)
             P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
                             dist_threshold, angle_threshold);
 
-        integrate(&pcd, vm0, nm0, cm0, idm, cam.K, P, frame, delta_r);
-        cleanup(&pcd, maxw, frame, delta_t);
-        raycast(pcd, &vm1, &nm1, &cm1, &idm, cam.K, P, frame, maxw, cutoff);
+        integrate_cloud(&pcd, vm0, nm0, cm0, idm, cam.K, P, frame, delta_r);
+        cleanup_cloud(&pcd, maxw, frame, delta_t);
+        raycast_cloud(pcd, &vm1, &nm1, &cm1, &idm,
+                      cam.K, P, frame, maxw, cutoff);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};

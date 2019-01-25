@@ -36,10 +36,10 @@ void remove_unstable_surfel_kernel(
 }
 
 
-void cleanup(cloud<surfel>* pcd,
-             float maxw,
-             int timestamp,
-             int delta_t)
+void cleanup_cloud(cloud<surfel>* pcd,
+                   float maxw,
+                   int timestamp,
+                   int delta_t)
 {
     static uint32_t* mask = nullptr;
     static uint32_t* sum = nullptr;

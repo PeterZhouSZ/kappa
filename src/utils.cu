@@ -274,7 +274,7 @@ void vertex_to_normal_radius(
 }
 
 
-void reset(volume<voxel>* vol)
+void reset_volume(volume<voxel>* vol)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
@@ -285,7 +285,7 @@ void reset(volume<voxel>* vol)
 }
 
 
-void reset(cloud<surfel>* pcd)
+void reset_cloud(cloud<surfel>* pcd)
 {
     uint32_t block_size = 512;
     uint32_t grid_size = divup(pcd->capacity, block_size);

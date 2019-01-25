@@ -76,7 +76,7 @@ int main(int argc, char** argv)
     vol.voxel_size = 0.008f;
     vol.offset = {-2.0f, -2.0f, 0.0f};
     vol.alloc(shape, DEVICE_CUDA);
-    reset(&vol);
+    reset_volume(&vol);
 
     prealloc();
     while (!glfwWindowShouldClose(win)) {
@@ -102,8 +102,8 @@ int main(int argc, char** argv)
             P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
                             dist_threshold, angle_threshold);
 
-        integrate(&vol, dm, cm0, cam.K, P, mu, maxw);
-        raycast(vol, &vm1, &nm1, cam.K, P, mu, near, far);
+        integrate_volume(&vol, dm, cm0, cam.K, P, mu, maxw);
+        raycast_volume(vol, &vm1, &nm1, cam.K, P, mu, near, far);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};

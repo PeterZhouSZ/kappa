@@ -39,52 +39,52 @@ void depth_bilateral(
     float d_sigma,
     float r_sigma);
 
-void reset(volume<voxel>* vol);
+void reset_volume(volume<voxel>* vol);
 
-void integrate(volume<voxel>* vol,
-               const image<float> dm,
-               const image<float3> cm,
-               intrinsics K,
-               mat4x4 T,
-               float mu,
-               float maxw);
+void integrate_volume(volume<voxel>* vol,
+                      const image<float> dm,
+                      const image<float3> cm,
+                      intrinsics K,
+                      mat4x4 T,
+                      float mu,
+                      float maxw);
 
-void raycast(const volume<voxel> vol,
-             image<float3>* vm,
-             image<float4>* nm,
-             intrinsics K,
-             mat4x4 T,
-             float mu,
-             float near,
-             float far);
+void raycast_volume(const volume<voxel> vol,
+                    image<float3>* vm,
+                    image<float4>* nm,
+                    intrinsics K,
+                    mat4x4 T,
+                    float mu,
+                    float near,
+                    float far);
 
-void reset(cloud<surfel>* pcd);
+void reset_cloud(cloud<surfel>* pcd);
 
-void integrate(cloud<surfel>* pcd,
-               const image<float3> vm,
-               const image<float4> nm,
-               const image<float3> cm,
-               const image<uint32_t> idm,
-               intrinsics K,
-               mat4x4 T,
-               int timestamp,
-               float delta_r);
+void integrate_cloud(cloud<surfel>* pcd,
+                     const image<float3> vm,
+                     const image<float4> nm,
+                     const image<float3> cm,
+                     const image<uint32_t> idm,
+                     intrinsics K,
+                     mat4x4 T,
+                     int timestamp,
+                     float delta_r);
 
-void raycast(const cloud<surfel> pcd,
-             image<float3>* vm,
-             image<float4>* nm,
-             image<float3>* cm,
-             image<uint32_t>* idm,
-             intrinsics K,
-             mat4x4 T,
-             int timestamp,
-             float maxw,
-             float cutoff);
+void raycast_cloud(const cloud<surfel> pcd,
+                   image<float3>* vm,
+                   image<float4>* nm,
+                   image<float3>* cm,
+                   image<uint32_t>* idm,
+                   intrinsics K,
+                   mat4x4 T,
+                   int timestamp,
+                   float maxw,
+                   float cutoff);
 
-void cleanup(cloud<surfel>* pcd,
-             float maxw,
-             int timestamp,
-             int delta_t);
+void cleanup_cloud(cloud<surfel>* pcd,
+                   float maxw,
+                   int timestamp,
+                   int delta_t);
 
 mat4x4 icp_p2p_se3(
     const image<float3> vm0,
