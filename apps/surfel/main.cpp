@@ -35,22 +35,21 @@ image<float4>   nm1;
 image<float3>   cm1;
 
 cloud<surfel> pcd;
-camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
 
-static void prealloc()
+static void prealloc(intrinsics K)
 {
-    im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
-    dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    dm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    vm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    nm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    cm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    vm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    nm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    cm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    idm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    im.resize(K.width, K.height, DEVICE_CUDA_MAPPED);
+    dm.resize(K.width, K.height, DEVICE_CUDA);
+    dm0.resize(K.width, K.height, DEVICE_CUDA);
+    vm0.resize(K.width, K.height, DEVICE_CUDA);
+    nm0.resize(K.width, K.height, DEVICE_CUDA);
+    cm0.resize(K.width, K.height, DEVICE_CUDA);
+    vm1.resize(K.width, K.height, DEVICE_CUDA);
+    nm1.resize(K.width, K.height, DEVICE_CUDA);
+    cm1.resize(K.width, K.height, DEVICE_CUDA);
+    idm.resize(K.width, K.height, DEVICE_CUDA);
     idm.clear();
 }
 
@@ -66,6 +65,7 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
 
+    camera cam{argv[1]};
     cam.resolution(STREAM_DEPTH, RESOLUTION_VGA);
     cam.resolution(STREAM_COLOR, RESOLUTION_VGA);
     cam.K.cx = 320.0f;
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
     pcd.alloc(capacity, DEVICE_CUDA);
     reset_cloud(&pcd);
 
-    prealloc();
+    prealloc(cam.K);
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -100,14 +100,15 @@ int main(int argc, char** argv)
         depth_to_vertex(dm0, &vm0, cam.K);
         vertex_to_normal_radius(vm0, &nm0, cam.K);
 
-        if (frame > 0)
-            P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
-                            dist_threshold, angle_threshold);
+        if (frame > 0) {
+            P = icp_p2p_se3(
+                vm0, nm0, vm1, nm1, cam.K, P,
+                num_iterations, dist_threshold, angle_threshold);
+        }
 
         integrate_cloud(&pcd, vm0, nm0, cm0, idm, cam.K, P, frame, delta_r);
         cleanup_cloud(&pcd, maxw, frame, delta_t);
-        raycast_cloud(pcd, &vm1, &nm1, &cm1, &idm,
-                      cam.K, P, frame, maxw, cutoff);
+        raycast_cloud(pcd, &vm1, &nm1, &cm1, &idm, cam.K, P, frame, maxw, cutoff);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};

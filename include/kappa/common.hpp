@@ -101,8 +101,7 @@ struct mat4x4 {
 
     mat4x4 inverse() const
     {
-        Eigen::Map<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>>
-            m((float*)data);
+        Eigen::Map<Eigen::Matrix<float, 4, 4, Eigen::RowMajor>> m((float*)data);
         Eigen::Matrix4f i = m.inverse();
         return mat4x4(i);
     }
