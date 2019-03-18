@@ -51,16 +51,16 @@ struct volume {
         float b = q.y - y;
         float c = q.z - z;
 
-        float tsdf = 0.0f;
-        tsdf += (*this)(x + 0, y + 0, z + 0) * (1 - a) * (1 - b) * (1 - c);
-        tsdf += (*this)(x + 0, y + 0, z + 1) * (1 - a) * (1 - b) * (    c);
-        tsdf += (*this)(x + 0, y + 1, z + 0) * (1 - a) * (    b) * (1 - c);
-        tsdf += (*this)(x + 0, y + 1, z + 1) * (1 - a) * (    b) * (    c);
-        tsdf += (*this)(x + 1, y + 0, z + 0) * (    a) * (1 - b) * (1 - c);
-        tsdf += (*this)(x + 1, y + 0, z + 1) * (    a) * (1 - b) * (    c);
-        tsdf += (*this)(x + 1, y + 1, z + 0) * (    a) * (    b) * (1 - c);
-        tsdf += (*this)(x + 1, y + 1, z + 1) * (    a) * (    b) * (    c);
-        return tsdf;
+        float fx = 0.0f;
+        fx += (*this)(x + 0, y + 0, z + 0) * (1 - a) * (1 - b) * (1 - c);
+        fx += (*this)(x + 0, y + 0, z + 1) * (1 - a) * (1 - b) * (    c);
+        fx += (*this)(x + 0, y + 1, z + 0) * (1 - a) * (    b) * (1 - c);
+        fx += (*this)(x + 0, y + 1, z + 1) * (1 - a) * (    b) * (    c);
+        fx += (*this)(x + 1, y + 0, z + 0) * (    a) * (1 - b) * (1 - c);
+        fx += (*this)(x + 1, y + 0, z + 1) * (    a) * (1 - b) * (    c);
+        fx += (*this)(x + 1, y + 1, z + 0) * (    a) * (    b) * (1 - c);
+        fx += (*this)(x + 1, y + 1, z + 1) * (    a) * (    b) * (    c);
+        return fx;
     }
 
     GPU_CODE

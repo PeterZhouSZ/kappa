@@ -55,6 +55,14 @@ struct surfel {
     int timestamp;
 };
 
+
+struct vertex {
+    float3 pos;
+    float3 normal;
+    float3 color;
+};
+
+
 struct intrinsics {
     int   width;
     int   height;

@@ -170,7 +170,7 @@ void reset_volume_kernel(volume<voxel> vol)
     int z = threadIdx.z + blockIdx.z * blockDim.z;
     if (x >= vol.shape.x || y >= vol.shape.y || z >= vol.shape.z) return;
     int i = x + y * vol.shape.x + z * vol.shape.x * vol.shape.y;
-    vol[i].tsdf = 1.0f;
+    vol[i].tsdf   = 1.0f;
     vol[i].weight = 0.0f;
 }
 

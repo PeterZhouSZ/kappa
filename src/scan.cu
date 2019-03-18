@@ -73,11 +73,15 @@ uint32_t prescan(uint32_t* a, uint32_t* sum, int n)
 
     prescan_blelloch_kernel<<<grid_size, block_size,
         sizeof(uint32_t) * elems_per_block>>>(a, sum, bsum, n);
-    if (grid_size <= elems_per_block)
+    if (grid_size <= elems_per_block) {
         prescan_blelloch_kernel<<<1, block_size,
             sizeof(uint32_t) * elems_per_block>>>(
                 bsum, bsum, nullptr, grid_size);
-    else prescan(bsum, bsum, grid_size);
+    }
+    else {
+        prescan(bsum, bsum, grid_size);
+    }
+
     prescan_add_block_kernel<<<grid_size, block_size>>>(a, sum, bsum, n);
     cudaFree(bsum);
 

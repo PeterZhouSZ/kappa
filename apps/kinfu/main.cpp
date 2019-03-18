@@ -9,6 +9,7 @@
 
 int frame = 0;
 int num_iterations = 10;
+int num_vertices = 0x1000000;
 float dist_threshold = 0.05f;
 float angle_threshold = 0.8f;
 float d_sigma = 0.1f;
@@ -34,6 +35,7 @@ image<float4>   nm1;
 image<float3>   cm1;
 
 volume<voxel> vol;
+array<vertex> va;
 mat4x4 P;
 
 
@@ -116,6 +118,17 @@ int main(int argc, char** argv)
 
         if (seq.end()) glfwSetWindowShouldClose(win, true);
     }
+
+    va.alloc(num_vertices, DEVICE_CUDA_MAPPED);
+    int size = extract_isosurface_volume(vol, &va);
+
+    FILE* fp = fopen("cloud.obj", "w");
+    for (int i = 0; i < size; ++i) {
+        fprintf(fp, "v %f %f %f %f %f %f\n",
+                va[i].pos.x, va[i].pos.y, va[i].pos.z,
+                va[i].color.x, va[i].color.y, va[i].color.z);
+    }
+    fclose(fp);
 
     return 0;
 }
