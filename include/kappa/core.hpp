@@ -3,6 +3,7 @@
 #include "cloud.hpp"
 #include "math.hpp"
 #include "volume.hpp"
+#include "sequence.hpp"
 
 
 void raw_to_depth(

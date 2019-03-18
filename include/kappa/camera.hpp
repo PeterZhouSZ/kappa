@@ -3,18 +3,6 @@
 #include "image.hpp"
 
 
-struct intrinsics {
-    int   width;
-    int   height;
-    float cx;
-    float cy;
-    float fx;
-    float fy;
-    int   distortion;
-    float coeffs[5];
-};
-
-
 struct camera {
     camera(const char* uri = openni::ANY_DEVICE);
     ~camera();

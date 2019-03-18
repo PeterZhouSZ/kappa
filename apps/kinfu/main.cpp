@@ -62,24 +62,24 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
 
-    camera cam{argv[1]};
-    cam.resolution(STREAM_DEPTH, RESOLUTION_VGA);
-    cam.resolution(STREAM_COLOR, RESOLUTION_VGA);
-    cam.K.cx = 320.0f;
-    cam.K.cy = 240.0f;
-    cam.K.fx = 585.0f;
-    cam.K.fy = 585.0f;
-    cam.K.width = 640;
-    cam.K.height = 480;
-    cam.start();
+    sequence seq{argv[1]};
+    seq.start();
+
+    intrinsics K;
+    K.cx = 320.0f;
+    K.cy = 240.0f;
+    K.fx = 585.0f;
+    K.fy = 585.0f;
+    K.width = 640;
+    K.height = 480;
 
     int3 shape = {512, 512, 512};
-    vol.voxel_size = 0.008f;
-    vol.offset = {-2.0f, -2.0f, 0.0f};
+    vol.voxel_size = 0.005859375f;
+    vol.offset = {-1.5f, -1.5f, 0.0f};
     vol.alloc(shape, DEVICE_CUDA);
     reset_volume(&vol);
 
-    prealloc(cam.K);
+    prealloc(K);
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -91,32 +91,30 @@ int main(int argc, char** argv)
         glLoadIdentity();
         glOrtho(0, 640, 480, 0, -1 , 1);
 
-        cam.read(&rdm);
-        cam.read(&rcm);
-        raw_to_depth(rdm, &dm, cam.K, factor, cutoff);
-        raw_to_color(rcm, &cm0, cam.K);
-        depth_bilateral(dm, &dm0, cam.K, d_sigma, r_sigma);
-        depth_to_vertex(dm0, &vm0, cam.K);
-        vertex_to_normal(vm0, &nm0, cam.K);
+        seq.read(&rdm);
+        seq.read(&rcm);
+        raw_to_depth(rdm, &dm, K, factor, cutoff);
+        raw_to_color(rcm, &cm0, K);
+        depth_bilateral(dm, &dm0, K, d_sigma, r_sigma);
+        depth_to_vertex(dm0, &vm0, K);
+        vertex_to_normal(vm0, &nm0, K);
 
-        if (frame > 0) {
-            P = icp_p2p_se3(
-                vm0, nm0, vm1, nm1, cam.K, P,
-                num_iterations, dist_threshold, angle_threshold);
-        }
+        seq.read(&P);
 
-        integrate_volume(&vol, dm, cm0, cam.K, P, mu, maxw);
-        raycast_volume(vol, &vm1, &nm1, &cm1, cam.K, P, mu, near, far);
+        integrate_volume(&vol, dm, cm0, K, P, mu, maxw);
+        raycast_volume(vol, &vm1, &nm1, &cm1, K, P, mu, near, far);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(vm1, nm1, cm1, &im, cam.K, light, view);
+        render_phong_light(vm1, nm1, cm1, &im, K, light, view);
         frame++;
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
         glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
         glfwSwapBuffers(win);
+
+        if (seq.end()) glfwSetWindowShouldClose(win, true);
     }
 
     return 0;
