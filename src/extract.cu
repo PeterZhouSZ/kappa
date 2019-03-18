@@ -27,7 +27,9 @@ void extract_isosurface_volume_kernel(
 }
 
 
-int extract_isosurface_volume(const volume<voxel> vol, array<vertex>* va)
+int extract_isosurface_volume(
+    const volume<voxel> vol,
+    array<vertex>* va)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;

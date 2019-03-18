@@ -2,6 +2,7 @@
 #include "array.hpp"
 #include "camera.hpp"
 #include "cloud.hpp"
+#include "io.hpp"
 #include "math.hpp"
 #include "volume.hpp"
 #include "sequence.hpp"

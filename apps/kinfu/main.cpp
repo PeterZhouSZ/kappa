@@ -76,8 +76,8 @@ int main(int argc, char** argv)
     K.height = 480;
 
     int3 shape = {512, 512, 512};
-    vol.voxel_size = 0.005859375f;
-    vol.offset = {-1.5f, -1.5f, 0.0f};
+    vol.voxel_size = 0.01171875f;
+    vol.offset = {-3.0f, -3.0f, 0.0f};
     vol.alloc(shape, DEVICE_CUDA);
     reset_volume(&vol);
 
@@ -121,14 +121,7 @@ int main(int argc, char** argv)
 
     va.alloc(num_vertices, DEVICE_CUDA_MAPPED);
     int size = extract_isosurface_volume(vol, &va);
-
-    FILE* fp = fopen("cloud.obj", "w");
-    for (int i = 0; i < size; ++i) {
-        fprintf(fp, "v %f %f %f %f %f %f\n",
-                va[i].pos.x, va[i].pos.y, va[i].pos.z,
-                va[i].color.x, va[i].color.y, va[i].color.z);
-    }
-    fclose(fp);
+    write_mesh_ply(argv[2], va, size);
 
     return 0;
 }
