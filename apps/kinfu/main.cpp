@@ -34,20 +34,20 @@ image<float4>   nm1;
 image<float3>   cm1;
 
 volume<voxel> vol;
-camera cam{"/run/media/hieu/storage/scenenn/061/061.oni"};
 mat4x4 P;
 
 
-static void prealloc()
+static void prealloc(intrinsics K)
 {
-    im.resize(cam.K.width, cam.K.height, DEVICE_CUDA_MAPPED);
-    dm.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    dm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    vm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    nm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    cm0.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    vm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
-    nm1.resize(cam.K.width, cam.K.height, DEVICE_CUDA);
+    im.resize(K.width, K.height, DEVICE_CUDA_MAPPED);
+    dm.resize(K.width, K.height, DEVICE_CUDA);
+    dm0.resize(K.width, K.height, DEVICE_CUDA);
+    vm0.resize(K.width, K.height, DEVICE_CUDA);
+    nm0.resize(K.width, K.height, DEVICE_CUDA);
+    cm0.resize(K.width, K.height, DEVICE_CUDA);
+    vm1.resize(K.width, K.height, DEVICE_CUDA);
+    nm1.resize(K.width, K.height, DEVICE_CUDA);
+    cm1.resize(K.width, K.height, DEVICE_CUDA);
 }
 
 
@@ -62,6 +62,7 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
 
+    camera cam{argv[1]};
     cam.resolution(STREAM_DEPTH, RESOLUTION_VGA);
     cam.resolution(STREAM_COLOR, RESOLUTION_VGA);
     cam.K.cx = 320.0f;
@@ -78,7 +79,7 @@ int main(int argc, char** argv)
     vol.alloc(shape, DEVICE_CUDA);
     reset_volume(&vol);
 
-    prealloc();
+    prealloc(cam.K);
     while (!glfwWindowShouldClose(win)) {
         glfwPollEvents();
         glClear(GL_COLOR_BUFFER_BIT);
@@ -98,16 +99,18 @@ int main(int argc, char** argv)
         depth_to_vertex(dm0, &vm0, cam.K);
         vertex_to_normal(vm0, &nm0, cam.K);
 
-        if (frame > 0)
-            P = icp_p2p_se3(vm0, nm0, vm1, nm1, cam.K, P, num_iterations,
-                            dist_threshold, angle_threshold);
+        if (frame > 0) {
+            P = icp_p2p_se3(
+                vm0, nm0, vm1, nm1, cam.K, P,
+                num_iterations, dist_threshold, angle_threshold);
+        }
 
         integrate_volume(&vol, dm, cm0, cam.K, P, mu, maxw);
-        raycast_volume(vol, &vm1, &nm1, cam.K, P, mu, near, far);
+        raycast_volume(vol, &vm1, &nm1, &cm1, cam.K, P, mu, near, far);
 
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
-        render_phong_light(vm1, nm1, &im, cam.K, light, view);
+        render_phong_light(vm1, nm1, cm1, &im, cam.K, light, view);
         frame++;
 
         glPixelZoom(1, -1);

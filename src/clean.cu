@@ -36,15 +36,16 @@ void remove_unstable_surfel_kernel(
 }
 
 
-void cleanup_cloud(cloud<surfel>* pcd,
-                   float maxw,
-                   int timestamp,
-                   int delta_t)
+void cleanup_cloud(
+    cloud<surfel>* pcd,
+    float maxw,
+    int timestamp,
+    int delta_t)
 {
     static uint32_t* mask = nullptr;
     static uint32_t* sum = nullptr;
     if (!mask) cudaMalloc((void**)&mask, sizeof(uint32_t) * pcd->capacity);
-    if (!sum) cudaMalloc((void**)&sum, sizeof(uint32_t) * pcd->capacity);
+    if (!sum)  cudaMalloc((void**)&sum,  sizeof(uint32_t) * pcd->capacity);
 
     uint32_t block_size = 512;
     uint32_t grid_size = divup(pcd->size, block_size);

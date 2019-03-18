@@ -64,6 +64,20 @@ struct volume {
     }
 
     GPU_CODE
+    float3 color(float3 p)
+    {
+        int x = roundf((p.x - offset.x) / voxel_size);
+        int y = roundf((p.y - offset.y) / voxel_size);
+        int z = roundf((p.z - offset.z) / voxel_size);
+        int i = x + y * shape.x + z * shape.x * shape.y;
+        if (x < 0 || x >= shape.x ||
+            y < 0 || y >= shape.y ||
+            z < 0 || z >= shape.z)
+            return {0.0f, 0.0f, 0.0f}; // cannot interpolate
+        return data[i].color;
+    }
+
+    GPU_CODE
     float3 grad(float3 p)
     {
         int x = roundf((p.x - offset.x) / voxel_size);

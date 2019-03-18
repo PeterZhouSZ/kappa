@@ -50,6 +50,7 @@ void integrate_volume_kernel(
     vol[i].tsdf   = (ft * wt + ftt * wtt) / (wt + wtt);
     vol[i].color  = (ct * wt + ctt * wtt) / (wt + wtt);
     vol[i].weight = fminf(wt + wtt, maxw);
+    vol[i].color  = clamp(vol[i].color, 0.0f, 1.0f);
 }
 
 
@@ -143,19 +144,19 @@ void integrate_cloud_kernel(
     pcd[k].normal = (nt * wt + ntt * wtt) / pcd[k].weight;
     pcd[k].color  = (ct * wt + ctt * wtt) / pcd[k].weight;
     pcd[k].radius = (rt * wt + rtt * wtt) / pcd[k].weight;
-
     pcd[k].normal = normalize(pcd[k].normal);
     pcd[k].color  = clamp(pcd[k].color, 0.0f, 1.0f);
 }
 
 
-void integrate_volume(volume<voxel>* vol,
-                      const image<float> dm,
-                      const image<float3> cm,
-                      intrinsics K,
-                      mat4x4 T,
-                      float mu,
-                      float maxw)
+void integrate_volume(
+    volume<voxel>* vol,
+    const image<float> dm,
+    const image<float3> cm,
+    intrinsics K,
+    mat4x4 T,
+    float mu,
+    float maxw)
 {
     dim3 block_size(8, 8, 8);
     dim3 grid_size;
@@ -167,15 +168,16 @@ void integrate_volume(volume<voxel>* vol,
 }
 
 
-void integrate_cloud(cloud<surfel>* pcd,
-                     const image<float3> vm,
-                     const image<float4> nm,
-                     const image<float3> cm,
-                     const image<uint32_t> idm,
-                     intrinsics K,
-                     mat4x4 T,
-                     int timestamp,
-                     float delta_r)
+void integrate_cloud(
+    cloud<surfel>* pcd,
+    const image<float3> vm,
+    const image<float4> nm,
+    const image<float3> cm,
+    const image<uint32_t> idm,
+    intrinsics K,
+    mat4x4 T,
+    int timestamp,
+    float delta_r)
 {
     static image<uint32_t> mm, sm;
     mm.resize(K.width, K.height, DEVICE_CUDA);

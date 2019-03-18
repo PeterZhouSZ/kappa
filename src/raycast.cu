@@ -6,6 +6,7 @@ void raycast_volume_kernel(
     volume<voxel> vol,
     image<float3> vm,
     image<float4> nm,
+    image<float3> cm,
     intrinsics K,
     mat4x4 T,
     float mu,
@@ -45,10 +46,12 @@ void raycast_volume_kernel(
     int i = u + v * K.width;
     vm[i] = {0.0f, 0.0f, 0.0f};
     nm[i] = {0.0f, 0.0f, 0.0f, 0.0f};
+    cm[i] = {0.0f, 0.0f, 0.0f};
     if (z >= 0.0f) {
         p = origin + direction * z;
         vm[i] = p;
         nm[i] = make_float4(vol.grad(p));
+        cm[i] = vol.color(p);
     }
 }
 
@@ -166,34 +169,37 @@ void raycast_cloud_kernel(
 }
 
 
-void raycast_volume(const volume<voxel> vol,
-                    image<float3>* vm,
-                    image<float4>* nm,
-                    intrinsics K,
-                    mat4x4 T,
-                    float mu,
-                    float near,
-                    float far)
+void raycast_volume(
+    const volume<voxel> vol,
+    image<float3>* vm,
+    image<float4>* nm,
+    image<float3>* cm,
+    intrinsics K,
+    mat4x4 T,
+    float mu,
+    float near,
+    float far)
 {
     dim3 block_size(16, 16);
     dim3 grid_size;
     grid_size.x = divup(K.width, block_size.x);
     grid_size.y = divup(K.height, block_size.y);
     raycast_volume_kernel<<<grid_size, block_size>>>(
-        vol.cuda(), vm->cuda(), nm->cuda(), K, T, mu, near, far);
+        vol.cuda(), vm->cuda(), nm->cuda(), cm->cuda(), K, T, mu, near, far);
 }
 
 
-void raycast_cloud(const cloud<surfel> pcd,
-                   image<float3>* vm,
-                   image<float4>* nm,
-                   image<float3>* cm,
-                   image<uint32_t>* idm,
-                   intrinsics K,
-                   mat4x4 T,
-                   int timestamp,
-                   float maxw,
-                   float cutoff)
+void raycast_cloud(
+    const cloud<surfel> pcd,
+    image<float3>* vm,
+    image<float4>* nm,
+    image<float3>* cm,
+    image<uint32_t>* idm,
+    intrinsics K,
+    mat4x4 T,
+    int timestamp,
+    float maxw,
+    float cutoff)
 {
     static image<uint32_t> zbuf;
     zbuf.resize(K.width, K.height, DEVICE_CUDA);
