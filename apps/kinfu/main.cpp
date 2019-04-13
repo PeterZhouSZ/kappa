@@ -118,10 +118,5 @@ int main(int argc, char** argv)
 
         if (seq.end()) glfwSetWindowShouldClose(win, true);
     }
-
-    va.alloc(num_vertices, DEVICE_CUDA_MAPPED);
-    int size = extract_isosurface_volume(vol, &va);
-    write_mesh_ply(argv[2], va, size);
-
     return 0;
 }

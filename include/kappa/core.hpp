@@ -64,8 +64,6 @@ void raycast_volume(
     float near,
     float far);
 
-int extract_isosurface_volume(const volume<voxel> vol, array<vertex>* va);
-
 void reset_cloud(cloud<surfel>* pcd);
 
 void integrate_cloud(
