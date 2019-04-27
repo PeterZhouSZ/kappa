@@ -2,7 +2,6 @@
 #include "array.hpp"
 #include "camera.hpp"
 #include "cloud.hpp"
-#include "io.hpp"
 #include "math.hpp"
 #include "volume.hpp"
 #include "sequence.hpp"
@@ -63,6 +62,10 @@ void raycast_volume(
     float mu,
     float near,
     float far);
+
+int extract_isosurface_volume(
+    const volume<voxel> vol,
+    array<vertex>* va);
 
 void reset_cloud(cloud<surfel>* pcd);
 

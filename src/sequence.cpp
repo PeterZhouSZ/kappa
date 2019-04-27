@@ -18,7 +18,6 @@ static void read_image_png(const char* fname, image<T>* im)
 
     int width    = png_get_image_width(pp, pi);
     int height   = png_get_image_height(pp, pi);
-    int channels = png_get_channels(pp, pi);
     int bitdepth = png_get_bit_depth(pp, pi);
 
     if (bitdepth == 16) png_set_swap(pp);
@@ -38,80 +37,67 @@ sequence::sequence(const char* path)
 {
     char fname[512];
     strcpy(this->path, path);
-    sprintf(fname, "%s/depth.txt", path);
-    depth = fopen(fname, "r");
-    sprintf(fname, "%s/rgb.txt", path);
-    color = fopen(fname, "r");
-    sprintf(fname, "%s/pose.txt", path);
-    pose = fopen(fname, "r");
+    sprintf(fname, "%s/trajectory.log", path);
+    fp = fopen(fname, "r");
 }
 
 
 sequence::~sequence()
 {
-    fclose(depth);
-    fclose(color);
-    fclose(pose);
-}
-
-
-void sequence::start()
-{
+    fclose(fp);
 }
 
 
 bool sequence::end() const
 {
-    return feof(depth) || feof(color);
+    return feof(fp);
 }
 
 
 bool sequence::read(image<uint16_t>* dm)
 {
-    char str[256];
-    if (fgets(str, 256, depth)) {
-        char fname[512];
-        str[strcspn(str, "\n")] = '\0'; // remove trailing newline
-        sprintf(fname, "%s/%s", path, str);
-        read_image_png(fname, dm);
-        return true;
-    }
-    return false;
+    char fname[512];
+    sprintf(fname, "%s/depth/%06d.png", path, frame);
+    read_image_png(fname, dm);
+    return true;
 }
 
 
 bool sequence::read(image<rgb8>* cm)
 {
-    char str[256];
-    if (fgets(str, 256, color)) {
-        char fname[512];
-        str[strcspn(str, "\n")] = '\0'; // remove trailing newline
-        sprintf(fname, "%s/%s", path, str);
-        read_image_png(fname, cm);
-        return true;
-    }
-    return false;
+    char fname[512];
+    sprintf(fname, "%s/color/%06d.png", path, frame);
+    read_image_png(fname, cm);
+    return true;
 }
 
 
 bool sequence::read(mat4x4* P)
 {
-    char str[256];
-    if (fgets(str, 256, pose)) {
-        char fname[512];
-        str[strcspn(str, "\n")] = '\0'; // remove trailing newline
-        sprintf(fname, "%s/%s", path, str);
-        FILE* fp = fopen(fname, "r");
-        fscanf(fp, "%f %f %f %f\n"
-               "%f %f %f %f\n"
-               "%f %f %f %f\n"
-               "%f %f %f %f\n",
-               &(P->m00), &(P->m01), &(P->m02), &(P->m03),
-               &(P->m10), &(P->m11), &(P->m12), &(P->m13),
-               &(P->m20), &(P->m21), &(P->m22), &(P->m23),
-               &(P->m30), &(P->m31), &(P->m32), &(P->m33));
-        fclose(fp);
-        return true;
+    fscanf(fp, "%*d %*d %*d\n"
+           "%f %f %f %f\n"
+           "%f %f %f %f\n"
+           "%f %f %f %f\n"
+           "%f %f %f %f\n",
+           &(P->m00), &(P->m01), &(P->m02), &(P->m03),
+           &(P->m10), &(P->m11), &(P->m12), &(P->m13),
+           &(P->m20), &(P->m21), &(P->m22), &(P->m23),
+           &(P->m30), &(P->m31), &(P->m32), &(P->m33));
+    return true;
+}
+
+
+void sequence::seek(int start)
+{
+    mat4x4 P;
+    while (frame < start) {
+        read(&P);
+        frame++;
     }
-    return false;
+}
+
+
+void sequence::next()
+{
+    frame++;
 }

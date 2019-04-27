@@ -7,7 +7,6 @@
 #include <kappa/core.hpp>
 
 
-int frame = 0;
 int num_iterations = 10;
 int num_vertices = 0x1000000;
 float dist_threshold = 0.05f;
@@ -18,7 +17,7 @@ float maxw = 100.0f;
 float cutoff = 4.0f;
 float near = 0.001f;
 float far = 4.0f;
-float mu = 0.1f;
+float mu = 0.04f;
 float factor = 0.001f;
 float3 light = {0.0f, 0.0f, 0.0f};
 
@@ -36,7 +35,7 @@ image<float3>   cm1;
 
 volume<voxel> vol;
 array<vertex> va;
-mat4x4 P;
+mat4x4 P, B;
 
 
 static void prealloc(intrinsics K)
@@ -53,6 +52,34 @@ static void prealloc(intrinsics K)
 }
 
 
+static void write_mesh_ply(const char* fname, const array<vertex> va, int size)
+{
+    FILE* fp = fopen(fname, "wb");
+    fprintf(fp, "ply\n"
+            "format binary_little_endian 1.0\n"
+            "element vertex %d\n"
+            "property float x\n"
+            "property float y\n"
+            "property float z\n"
+            "property uchar red\n"
+            "property uchar green\n"
+            "property uchar blue\n"
+            "end_header\n", size);
+    for (int i = 0; i < size; ++i) {
+        uint8_t r = (uint8_t)(va[i].color.x * 255.0f);
+        uint8_t g = (uint8_t)(va[i].color.y * 255.0f);
+        uint8_t b = (uint8_t)(va[i].color.z * 255.0f);
+        fwrite(&va[i].pos.x, sizeof(float), 1, fp);
+        fwrite(&va[i].pos.y, sizeof(float), 1, fp);
+        fwrite(&va[i].pos.z, sizeof(float), 1, fp);
+        fwrite(&r, sizeof(uint8_t), 1, fp);
+        fwrite(&g, sizeof(uint8_t), 1, fp);
+        fwrite(&b, sizeof(uint8_t), 1, fp);
+    }
+    fclose(fp);
+}
+
+
 int main(int argc, char** argv)
 {
     cudaSetDeviceFlags(cudaDeviceMapHost);
@@ -64,20 +91,23 @@ int main(int argc, char** argv)
     GLFWwindow* win = glfwCreateWindow(640, 480, "demo", nullptr, nullptr);
     glfwMakeContextCurrent(win);
 
+    int start = atoi(argv[2]);
+    int end   = atoi(argv[3]);
+
     sequence seq{argv[1]};
-    seq.start();
+    seq.seek(start);
 
     intrinsics K;
-    K.cx = 320.0f;
-    K.cy = 240.0f;
-    K.fx = 585.0f;
-    K.fy = 585.0f;
+    K.fx = 577.870605f;
+    K.fy = 577.870605f;
+    K.cx = 319.5f;
+    K.cy = 239.5f;
     K.width = 640;
     K.height = 480;
 
     int3 shape = {512, 512, 512};
-    vol.voxel_size = 0.01171875f;
-    vol.offset = {-3.0f, -3.0f, 0.0f};
+    vol.voxel_size = 0.008f;
+    vol.offset = {-2.048f, -2.048f, 0.0f};
     vol.alloc(shape, DEVICE_CUDA);
     reset_volume(&vol);
 
@@ -101,7 +131,11 @@ int main(int argc, char** argv)
         depth_to_vertex(dm0, &vm0, K);
         vertex_to_normal(vm0, &nm0, K);
 
+        mat4x4 P;
         seq.read(&P);
+        if (seq.frame == start) B = P.inverse();
+        P = B * P;
+        seq.next();
 
         integrate_volume(&vol, dm, cm0, K, P, mu, maxw);
         raycast_volume(vol, &vm1, &nm1, &cm1, K, P, mu, near, far);
@@ -109,14 +143,18 @@ int main(int argc, char** argv)
         float3 light = {P.m03, P.m13, P.m23};
         float3 view = {P.m03, P.m13, P.m23};
         render_phong_light(vm1, nm1, cm1, &im, K, light, view);
-        frame++;
 
         glPixelZoom(1, -1);
         glRasterPos2i(0, 0);
         glDrawPixels(im.width, im.height, GL_RGB, GL_UNSIGNED_BYTE, im.data);
         glfwSwapBuffers(win);
 
-        if (seq.end()) glfwSetWindowShouldClose(win, true);
+        if (seq.frame == end || seq.end()) glfwSetWindowShouldClose(win, true);
     }
+
+    va.alloc(0x1000000, DEVICE_CUDA_MAPPED);
+    int size = extract_isosurface_volume(vol, &va);
+    write_mesh_ply(argv[4], va, size);
+
     return 0;
 }
